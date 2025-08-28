@@ -275,6 +275,45 @@ export type Database = {
         }
         Relationships: []
       }
+      recharge_cards: {
+        Row: {
+          amount: number
+          code: string
+          created_at: string
+          created_by: string
+          expire_at: string | null
+          id: string
+          status: string
+          updated_at: string
+          used_at: string | null
+          used_by: string | null
+        }
+        Insert: {
+          amount: number
+          code: string
+          created_at?: string
+          created_by: string
+          expire_at?: string | null
+          id?: string
+          status?: string
+          updated_at?: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          amount?: number
+          code?: string
+          created_at?: string
+          created_by?: string
+          expire_at?: string | null
+          id?: string
+          status?: string
+          updated_at?: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Relationships: []
+      }
       system_settings: {
         Row: {
           category: string
@@ -314,6 +353,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      generate_recharge_card_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -346,6 +389,10 @@ export type Database = {
           updated_at: string
           version: string
         }[]
+      }
+      use_recharge_card: {
+        Args: { card_code: string }
+        Returns: Json
       }
     }
     Enums: {
