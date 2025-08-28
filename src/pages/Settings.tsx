@@ -22,7 +22,11 @@ import {
   Plus,
   Search,
   Eye,
-  Copy
+  Copy,
+  Mail,
+  Send,
+  CheckCircle,
+  History
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +47,11 @@ const Settings = () => {
   const [isWebhookLoading, setIsWebhookLoading] = useState(false);
   const [rechargeDialogOpen, setRechargeDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
+  const [testEmailData, setTestEmailData] = useState({
+    address: "",
+    type: "welcome" as "welcome" | "verification-code" | "card-expiry"
+  });
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['system-settings'],
@@ -161,6 +170,65 @@ const Settings = () => {
     }
   };
 
+  const handleTestEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!testEmailData.address) {
+      toast({
+        title: "测试失败",
+        description: "请输入测试邮箱地址",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsTestingEmail(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('test-email', {
+        body: {
+          testEmail: testEmailData.address,
+          emailType: testEmailData.type
+        }
+      });
+
+      if (error) {
+        toast({
+          title: "测试失败",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.error) {
+        toast({
+          title: "测试失败",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "测试邮件发送成功",
+        description: data.message,
+      });
+
+      // 刷新设置数据
+      queryClient.invalidateQueries({ queryKey: ['system-settings'] });
+
+    } catch (error) {
+      toast({
+        title: "测试失败",
+        description: "系统错误，请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTestingEmail(false);
+    }
+  };
+
   const handleZapierTrigger = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -235,8 +303,9 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="general" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="general">基本设置</TabsTrigger>
+            <TabsTrigger value="email">邮箱配置</TabsTrigger>
             <TabsTrigger value="payment">支付配置</TabsTrigger>
             <TabsTrigger value="recharge">充值卡密</TabsTrigger>
             <TabsTrigger value="integration">集成配置</TabsTrigger>
@@ -279,6 +348,177 @@ const Settings = () => {
                     )}
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 邮箱配置 */}
+          <TabsContent value="email" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  邮件服务配置
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={getSettingValue('email_enabled') === 'true'}
+                      onCheckedChange={(checked) => 
+                        updateSetting('email_enabled', checked ? 'true' : 'false')
+                      }
+                    />
+                    <span className="font-medium">启用邮件服务</span>
+                  </div>
+                  <Badge variant={getSettingValue('email_enabled') === 'true' ? 'default' : 'secondary'}>
+                    {getSettingValue('email_enabled') === 'true' ? '已启用' : '已禁用'}
+                  </Badge>
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email_from_name">发件人名称</Label>
+                    <Input
+                      id="email_from_name"
+                      value={getSettingValue('email_from_name')}
+                      onChange={(e) => updateSetting('email_from_name', e.target.value)}
+                      placeholder="卡密管理系统"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email_from_address">发件人邮箱</Label>
+                    <Input
+                      id="email_from_address"
+                      type="email"
+                      value={getSettingValue('email_from_address')}
+                      onChange={(e) => updateSetting('email_from_address', e.target.value)}
+                      placeholder="noreply@yourdomain.com"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email_reply_to">回复邮箱</Label>
+                    <Input
+                      id="email_reply_to"
+                      type="email"
+                      value={getSettingValue('email_reply_to')}
+                      onChange={(e) => updateSetting('email_reply_to', e.target.value)}
+                      placeholder="support@yourdomain.com"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email_expiry_days">到期提醒天数</Label>
+                    <Input
+                      id="email_expiry_days"
+                      value={getSettingValue('email_expiry_days')}
+                      onChange={(e) => updateSetting('email_expiry_days', e.target.value)}
+                      placeholder="7,3,1"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      用逗号分隔多个天数，如：7,3,1
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <h4 className="font-medium">邮件类型设置</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <span className="text-sm">欢迎邮件</span>
+                      <Switch
+                        checked={getSettingValue('email_welcome_enabled') === 'true'}
+                        onCheckedChange={(checked) => 
+                          updateSetting('email_welcome_enabled', checked ? 'true' : 'false')
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <span className="text-sm">到期提醒邮件</span>
+                      <Switch
+                        checked={getSettingValue('email_expiry_enabled') === 'true'}
+                        onCheckedChange={(checked) => 
+                          updateSetting('email_expiry_enabled', checked ? 'true' : 'false')
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                      <span className="text-sm">每日报告邮件</span>
+                      <Switch
+                        checked={getSettingValue('email_daily_report_enabled') === 'true'}
+                        onCheckedChange={(checked) => 
+                          updateSetting('email_daily_report_enabled', checked ? 'true' : 'false')
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <h4 className="font-medium">邮件测试</h4>
+                  <form onSubmit={handleTestEmail} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="test-email">测试邮箱地址</Label>
+                        <Input
+                          id="test-email"
+                          type="email"
+                          value={testEmailData.address}
+                          onChange={(e) => setTestEmailData({ ...testEmailData, address: e.target.value })}
+                          placeholder="test@example.com"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="test-email-type">邮件类型</Label>
+                        <select 
+                          id="test-email-type"
+                          value={testEmailData.type}
+                          onChange={(e) => setTestEmailData({ ...testEmailData, type: e.target.value as any })}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <option value="welcome">欢迎邮件</option>
+                          <option value="verification-code">验证码邮件</option>
+                          <option value="card-expiry">到期提醒邮件</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <Button 
+                      type="submit" 
+                      disabled={isTestingEmail || !testEmailData.address}
+                      className="gap-2"
+                    >
+                      {isTestingEmail ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground"></div>
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                      发送测试邮件
+                    </Button>
+                  </form>
+                </div>
+
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <h4 className="font-medium mb-2">配置说明</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• 发件人邮箱需要在Resend中验证域名</li>
+                    <li>• 到期提醒邮件会在指定天数前自动发送</li>
+                    <li>• 每日报告功能需要单独配置定时任务</li>
+                    <li>• 测试邮件可以验证配置是否正确</li>
+                  </ul>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
