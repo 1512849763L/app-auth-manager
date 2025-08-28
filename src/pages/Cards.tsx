@@ -38,6 +38,7 @@ const Cards = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showBatchDialog, setShowBatchDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState<string | null>(null);
   const [editingCard, setEditingCard] = useState<CardKey | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -346,6 +347,41 @@ const Cards = () => {
       status: card.status,
     });
     setShowEditDialog(true);
+  };
+
+  const clearMachineBindings = async (cardId: string) => {
+    try {
+      const { error } = await supabase
+        .from('card_keys')
+        .update({ 
+          bound_machine_codes: [],
+          used_machines: 0,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', cardId);
+
+      if (error) {
+        toast({
+          title: "清除绑定失败",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "清除成功",
+        description: "已清除该卡密的所有机器绑定",
+      });
+
+      fetchData(); // 刷新数据
+    } catch (error) {
+      toast({
+        title: "清除绑定失败",
+        description: "系统错误，请稍后重试",
+        variant: "destructive",
+      });
+    }
   };
 
   const copyToClipboard = async (text: string) => {
@@ -682,6 +718,79 @@ const Cards = () => {
           </div>
         </div>
 
+        {/* 清除机器绑定确认对话框 */}
+        <Dialog open={!!showClearConfirm} onOpenChange={() => setShowClearConfirm(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-orange-600">
+                <RefreshCw className="h-5 w-5" />
+                清除机器绑定
+              </DialogTitle>
+              <DialogDescription>
+                此操作将清除该卡密的所有机器码绑定，卡密将可以重新绑定到其他机器上。
+              </DialogDescription>
+            </DialogHeader>
+            
+            {showClearConfirm && (() => {
+              const card = cardKeys.find(c => c.id === showClearConfirm);
+              return card ? (
+                <div className="space-y-4">
+                  <div className="bg-muted p-3 rounded-lg">
+                    <div className="font-mono text-sm font-medium mb-2">{card.card_key}</div>
+                    <div className="text-sm text-muted-foreground">
+                      程序: {card.programs.name}
+                    </div>
+                    {card.bound_machine_codes && card.bound_machine_codes.length > 0 && (
+                      <div className="mt-2">
+                        <div className="text-sm font-medium mb-1">当前绑定的机器码:</div>
+                        <div className="space-y-1">
+                          {card.bound_machine_codes.map((code, index) => (
+                            <div key={index} className="font-mono text-xs bg-background px-2 py-1 rounded border">
+                              {code}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg">
+                    <div className="flex items-center gap-2 text-orange-700 dark:text-orange-300 text-sm font-medium mb-1">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      注意事项
+                    </div>
+                    <ul className="text-orange-600 dark:text-orange-400 text-sm space-y-1">
+                      <li>• 清除后，此卡密可以重新绑定到其他机器</li>
+                      <li>• 原来绑定的机器将无法继续使用此卡密</li>
+                      <li>• 此操作不可撤销</li>
+                    </ul>
+                  </div>
+
+                  <div className="flex justify-end space-x-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowClearConfirm(null)}
+                    >
+                      取消
+                    </Button>
+                    <Button 
+                      variant="destructive"
+                      onClick={() => {
+                        clearMachineBindings(showClearConfirm);
+                        setShowClearConfirm(null);
+                      }}
+                    >
+                      确认清除
+                    </Button>
+                  </div>
+                </div>
+              ) : null;
+            })()}
+          </DialogContent>
+        </Dialog>
+
         {/* 筛选区域 */}
         <div className="flex flex-col sm:flex-row gap-4 p-4 bg-card/50 backdrop-blur-sm rounded-lg border border-border/50">
           <div className="flex-1">
@@ -920,14 +1029,9 @@ const Cards = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => {
-                                // 这里可以添加清除机器绑定的功能
-                                toast({
-                                  title: "功能提示",
-                                  description: "清除机器绑定功能开发中",
-                                });
-                              }}
+                              onClick={() => setShowClearConfirm(card.id)}
                               title="清除所有机器绑定"
+                              className="text-orange-600 hover:text-orange-700"
                             >
                               <RefreshCw className="w-3 h-3 mr-1" />
                               清除绑定
