@@ -10,6 +10,7 @@ import {
   Home,
   Package,
   LogOut,
+  BookOpen,
 } from "lucide-react";
 import {
   Sidebar,
@@ -32,6 +33,7 @@ const menuItems = [
   { title: "卡密管理", url: "/cards", icon: Key },
   { title: "用户管理", url: "/users", icon: Users },
   { title: "财务管理", url: "/finance", icon: CreditCard },
+  { title: "开发文档", url: "/docs", icon: BookOpen },
   { title: "系统设置", url: "/settings", icon: Settings },
 ];
 
