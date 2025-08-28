@@ -6,9 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RechargeCardDialog } from "@/components/RechargeCardDialog";
 import { 
@@ -175,32 +175,52 @@ const Settings = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {getSettingsByCategory('general').map((setting) => (
-                  <div key={setting.id} className="space-y-2">
-                    <Label htmlFor={setting.key}>{setting.description}</Label>
-                    {setting.key.includes('auto_approve') ? (
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          id={setting.key}
-                          checked={setting.value === 'true'}
-                          onCheckedChange={(checked) => 
-                            updateSetting(setting.key, checked ? 'true' : 'false')
-                          }
-                        />
-                        <span className="text-sm text-muted-foreground">
-                          {setting.value === 'true' ? '已启用' : '已禁用'}
-                        </span>
-                      </div>
-                    ) : (
-                      <Input
-                        id={setting.key}
-                        value={setting.value || ''}
-                        onChange={(e) => updateSetting(setting.key, e.target.value)}
-                        placeholder={setting.description || ''}
-                      />
-                    )}
+                <div className="space-y-2">
+                  <Label htmlFor="system_name">系统名称</Label>
+                  <Input
+                    id="system_name"
+                    value={getSettingValue('system_name')}
+                    onChange={(e) => updateSetting('system_name', e.target.value)}
+                    placeholder="卡密授权系统"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="system_announcement">系统公告</Label>
+                  <Textarea
+                    id="system_announcement"
+                    value={getSettingValue('system_announcement')}
+                    onChange={(e) => updateSetting('system_announcement', e.target.value)}
+                    placeholder="在此输入系统公告内容..."
+                    className="min-h-[100px]"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>允许用户注册</Label>
+                      <p className="text-sm text-muted-foreground">
+                        关闭后新用户无法注册账号
+                      </p>
+                    </div>
+                    <Switch
+                      checked={getSettingValue('user_registration_enabled') !== 'false'}
+                      onCheckedChange={(checked) => 
+                        updateSetting('user_registration_enabled', checked ? 'true' : 'false')
+                      }
+                    />
                   </div>
-                ))}
+                </div>
+
+                <Separator />
+
+                <div className="flex justify-end">
+                  <Button onClick={() => window.location.reload()} className="gap-2">
+                    <Save className="h-4 w-4" />
+                    刷新页面应用设置
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
