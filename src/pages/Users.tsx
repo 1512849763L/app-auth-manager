@@ -16,6 +16,7 @@ type UserRole = 'admin' | 'agent' | 'user';
 
 interface UserProfile {
   id: string;
+  id: string;
   username: string;
   role: UserRole;
   balance: number;
@@ -42,6 +43,8 @@ const Users = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showUserPermissionDialog, setShowUserPermissionDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -51,6 +54,12 @@ const Users = () => {
     username: "",
     email: "",
     password: "",
+    role: "user" as UserRole,
+    balance: "0",
+  });
+
+  const [editData, setEditData] = useState({
+    username: "",
     role: "user" as UserRole,
     balance: "0",
   });
@@ -185,6 +194,100 @@ const Users = () => {
     } catch (error) {
       toast({
         title: "创建用户失败",
+        description: "系统错误，请稍后重试",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditUser = (user: UserProfile) => {
+    setSelectedUser(user);
+    setEditData({
+      username: user.username,
+      role: user.role,
+      balance: user.balance.toString(),
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedUser) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          username: editData.username,
+          role: editData.role,
+          balance: parseFloat(editData.balance),
+        })
+        .eq('id', selectedUser.id);
+
+      if (error) {
+        toast({
+          title: "更新用户失败",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "用户更新成功",
+        description: "用户信息已更新",
+      });
+
+      setShowEditDialog(false);
+      setSelectedUser(null);
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "更新用户失败",
+        description: "系统错误，请稍后重试",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleManageUserPermissions = (user: UserProfile) => {
+    setSelectedUser(user);
+    setPermissionData({
+      user_id: user.id,
+      program_id: "",
+      can_generate_keys: true,
+      can_view_keys: true,
+      can_manage_users: false,
+    });
+    setShowUserPermissionDialog(true);
+  };
+
+  const handleDeletePermission = async (permissionId: string) => {
+    try {
+      const { error } = await supabase
+        .from('agent_permissions')
+        .delete()
+        .eq('id', permissionId);
+
+      if (error) {
+        toast({
+          title: "删除权限失败",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "权限删除成功",
+        description: "代理权限已删除",
+      });
+
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "删除权限失败",
         description: "系统错误，请稍后重试",
         variant: "destructive",
       });
@@ -615,13 +718,23 @@ const Users = () => {
                       <span className="text-sm text-muted-foreground">代理权限</span>
                       <div className="space-y-1">
                         {permissions.map((permission) => (
-                          <div key={permission.id} className="text-xs p-2 bg-muted rounded">
-                            <div className="font-medium">{permission.programs.name}</div>
-                            <div className="text-muted-foreground">
-                              {permission.can_generate_keys && "生成卡密 "}
-                              {permission.can_view_keys && "查看卡密 "}
-                              {permission.can_manage_users && "管理用户"}
+                          <div key={permission.id} className="text-xs p-2 bg-muted rounded flex items-center justify-between">
+                            <div>
+                              <div className="font-medium">{permission.programs.name}</div>
+                              <div className="text-muted-foreground">
+                                {permission.can_generate_keys && "生成卡密 "}
+                                {permission.can_view_keys && "查看卡密 "}
+                                {permission.can_manage_users && "管理用户"}
+                              </div>
                             </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeletePermission(permission.id)}
+                              className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
                           </div>
                         ))}
                       </div>
@@ -629,13 +742,21 @@ const Users = () => {
                   )}
 
                   <div className="flex justify-end space-x-2 pt-2">
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleEditUser(user)}
+                    >
                       <Edit className="w-3 h-3 mr-1" />
                       编辑
                     </Button>
                     
-                    {user.role !== 'admin' && (
-                      <Button variant="outline" size="sm">
+                    {user.role === 'agent' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleManageUserPermissions(user)}
+                      >
                         <Settings className="w-3 h-3 mr-1" />
                         权限
                       </Button>
@@ -666,6 +787,144 @@ const Users = () => {
             )}
           </div>
         )}
+
+        {/* 编辑用户对话框 */}
+        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>编辑用户</DialogTitle>
+              <DialogDescription>
+                修改用户的基本信息
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleUpdateUser} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_username">用户名</Label>
+                <Input
+                  id="edit_username"
+                  placeholder="请输入用户名"
+                  value={editData.username}
+                  onChange={(e) => setEditData({ ...editData, username: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_role">用户角色</Label>
+                  <Select value={editData.role} onValueChange={(value: UserRole) => setEditData({ ...editData, role: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">用户</SelectItem>
+                      <SelectItem value="agent">代理</SelectItem>
+                      <SelectItem value="admin">管理员</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit_balance">账户余额</Label>
+                  <Input
+                    id="edit_balance"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={editData.balance}
+                    onChange={(e) => setEditData({ ...editData, balance: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)}>
+                  取消
+                </Button>
+                <Button type="submit">
+                  保存更改
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* 用户权限管理对话框 */}
+        <Dialog open={showUserPermissionDialog} onOpenChange={setShowUserPermissionDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>管理用户权限</DialogTitle>
+              <DialogDescription>
+                为 {selectedUser?.username} 添加新的程序权限
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreatePermission} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="user_permission_program">选择程序</Label>
+                <Select value={permissionData.program_id} onValueChange={(value) => setPermissionData({ ...permissionData, program_id: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="请选择程序" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {programs.map((program) => (
+                      <SelectItem key={program.id} value={program.id}>
+                        {program.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-3">
+                <Label>权限设置</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="user_can_generate_keys"
+                      checked={permissionData.can_generate_keys}
+                      onCheckedChange={(checked) => setPermissionData({ ...permissionData, can_generate_keys: checked as boolean })}
+                    />
+                    <Label htmlFor="user_can_generate_keys" className="text-sm">
+                      可以生成卡密
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="user_can_view_keys"
+                      checked={permissionData.can_view_keys}
+                      onCheckedChange={(checked) => setPermissionData({ ...permissionData, can_view_keys: checked as boolean })}
+                    />
+                    <Label htmlFor="user_can_view_keys" className="text-sm">
+                      可以查看卡密
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="user_can_manage_users"
+                      checked={permissionData.can_manage_users}
+                      onCheckedChange={(checked) => setPermissionData({ ...permissionData, can_manage_users: checked as boolean })}
+                    />
+                    <Label htmlFor="user_can_manage_users" className="text-sm">
+                      可以管理用户
+                    </Label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setShowUserPermissionDialog(false)}>
+                  取消
+                </Button>
+                <Button type="submit">
+                  添加权限
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
