@@ -11,14 +11,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ShoppingCart, 
-  CreditCard, 
   Key, 
   Wallet, 
   Shield,
   Copy,
-  Trash2,
   RefreshCw,
-  Plus
+  User,
+  Lock,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,8 +28,13 @@ import { useToast } from "@/hooks/use-toast";
 const Index = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [rechargeAmount, setRechargeAmount] = useState("");
   const [selectedProgram, setSelectedProgram] = useState<string>("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // 获取用户信息
   const { data: userProfile, isLoading: loadingProfile } = useQuery({
@@ -89,7 +95,7 @@ const Index = () => {
       if (!program) throw new Error('程序不存在');
       
       if (userProfile!.balance < program.price) {
-        throw new Error('余额不足，请先充值');
+        throw new Error('余额不足，请联系管理员充值');
       }
 
       // 创建订单
@@ -189,6 +195,44 @@ const Index = () => {
     }
   });
 
+  // 修改密码
+  const changePasswordMutation = useMutation({
+    mutationFn: async ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) => {
+      // 首先验证当前密码
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: (await supabase.auth.getUser()).data.user?.email!,
+        password: currentPassword
+      });
+
+      if (signInError) {
+        throw new Error('当前密码错误');
+      }
+
+      // 更新密码
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (updateError) throw updateError;
+    },
+    onSuccess: () => {
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      toast({
+        title: "密码修改成功",
+        description: "您的密码已成功修改",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "密码修改失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
   // 复制卡密
   const copyCardKey = (cardKey: string) => {
     navigator.clipboard.writeText(cardKey);
@@ -216,6 +260,37 @@ const Index = () => {
         {labels[status] || status}
       </Badge>
     );
+  };
+
+  const handlePasswordChange = () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast({
+        title: "请填写完整信息",
+        description: "所有密码字段都是必填的",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "密码不匹配",
+        description: "新密码和确认密码不一致",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: "密码太短",
+        description: "新密码至少需要6个字符",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    changePasswordMutation.mutate({ currentPassword, newPassword });
   };
 
   if (loadingProfile) {
@@ -289,6 +364,94 @@ const Index = () => {
             </Card>
           </div>
 
+          {/* 管理员账户设置 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                账户设置
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="current-password">当前密码</Label>
+                  <div className="relative">
+                    <Input
+                      id="current-password"
+                      type={showCurrentPassword ? "text" : "password"}
+                      placeholder="请输入当前密码"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    >
+                      {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">新密码</Label>
+                  <div className="relative">
+                    <Input
+                      id="new-password"
+                      type={showNewPassword ? "text" : "password"}
+                      placeholder="请输入新密码"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                    >
+                      {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">确认新密码</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirm-password"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="请确认新密码"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              
+              <Button 
+                onClick={handlePasswordChange}
+                disabled={changePasswordMutation.isPending}
+                className="flex items-center gap-2"
+              >
+                <Lock className="h-4 w-4" />
+                {changePasswordMutation.isPending ? '修改中...' : '修改密码'}
+              </Button>
+            </CardContent>
+          </Card>
+
           <div className="text-center">
             <p className="text-muted-foreground mb-4">使用侧边栏导航到各管理功能</p>
           </div>
@@ -305,7 +468,7 @@ const Index = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">欢迎回来，{userProfile?.username}</h1>
-            <p className="text-muted-foreground">管理您的卡密和账户余额</p>
+            <p className="text-muted-foreground">管理您的卡密和账户</p>
           </div>
           <div className="text-right">
             <div className="text-sm text-muted-foreground">账户余额</div>
@@ -316,8 +479,8 @@ const Index = () => {
         <Tabs defaultValue="purchase" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="purchase">购买卡密</TabsTrigger>
-            <TabsTrigger value="recharge">充值余额</TabsTrigger>
             <TabsTrigger value="my-keys">我的卡密</TabsTrigger>
+            <TabsTrigger value="account">账户设置</TabsTrigger>
           </TabsList>
 
           {/* 购买卡密 */}
@@ -413,64 +576,6 @@ const Index = () => {
             </Card>
           </TabsContent>
 
-          {/* 充值余额 */}
-          <TabsContent value="recharge" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5" />
-                  充值余额
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[10, 50, 100, 500].map((amount) => (
-                    <Button
-                      key={amount}
-                      variant="outline"
-                      className="h-20 flex-col space-y-2"
-                      onClick={() => setRechargeAmount(amount.toString())}
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span>¥{amount}</span>
-                    </Button>
-                  ))}
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="custom-amount">自定义金额</Label>
-                    <Input
-                      id="custom-amount"
-                      type="number"
-                      placeholder="请输入充值金额"
-                      value={rechargeAmount}
-                      onChange={(e) => setRechargeAmount(e.target.value)}
-                    />
-                  </div>
-
-                  <Button 
-                    className="w-full" 
-                    size="lg"
-                    disabled={!rechargeAmount || parseFloat(rechargeAmount) <= 0}
-                  >
-                    充值 ¥{rechargeAmount || '0.00'}
-                  </Button>
-                </div>
-
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
-                  <h4 className="font-semibold mb-2">充值说明</h4>
-                  <ul className="text-sm space-y-1 text-muted-foreground">
-                    <li>• 支持微信、支付宝、银行卡支付</li>
-                    <li>• 充值金额实时到账，无手续费</li>
-                    <li>• 最低充值金额¥10，最高¥10000</li>
-                    <li>• 余额可用于购买所有程序卡密</li>
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           {/* 我的卡密 */}
           <TabsContent value="my-keys" className="space-y-4">
             <Card>
@@ -537,6 +642,124 @@ const Index = () => {
                     </TableBody>
                   </Table>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 账户设置 */}
+          <TabsContent value="account" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  账户设置
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="bg-muted p-4 rounded-lg">
+                  <h4 className="font-semibold mb-2">账户信息</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>用户名</Label>
+                      <div className="text-sm text-muted-foreground mt-1">{userProfile?.username}</div>
+                    </div>
+                    <div>
+                      <Label>当前余额</Label>
+                      <div className="text-sm text-muted-foreground mt-1">¥{userProfile?.balance?.toFixed(2) || '0.00'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="font-semibold">修改密码</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="current-password">当前密码</Label>
+                      <div className="relative">
+                        <Input
+                          id="current-password"
+                          type={showCurrentPassword ? "text" : "password"}
+                          placeholder="请输入当前密码"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        >
+                          {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="new-password">新密码</Label>
+                      <div className="relative">
+                        <Input
+                          id="new-password"
+                          type={showNewPassword ? "text" : "password"}
+                          placeholder="请输入新密码"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                        >
+                          {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">确认新密码</Label>
+                      <div className="relative">
+                        <Input
+                          id="confirm-password"
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="请确认新密码"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        >
+                          {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    onClick={handlePasswordChange}
+                    disabled={changePasswordMutation.isPending}
+                    className="flex items-center gap-2"
+                  >
+                    <Lock className="h-4 w-4" />
+                    {changePasswordMutation.isPending ? '修改中...' : '修改密码'}
+                  </Button>
+                </div>
+
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
+                  <h4 className="font-semibold mb-2">账户说明</h4>
+                  <ul className="text-sm space-y-1 text-muted-foreground">
+                    <li>• 密码长度至少6个字符</li>
+                    <li>• 余额充值请联系管理员</li>
+                    <li>• 卡密购买后立即生效</li>
+                    <li>• 如有问题请联系客服</li>
+                  </ul>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
