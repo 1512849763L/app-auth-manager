@@ -30,6 +30,9 @@ const Index = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedProgram, setSelectedProgram] = useState<string>("");
+  const [purchaseQuantity, setPurchaseQuantity] = useState<number>(1);
+  const [purchasedCards, setPurchasedCards] = useState<string[]>([]);
+  const [showPurchaseResults, setShowPurchaseResults] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -91,53 +94,60 @@ const Index = () => {
 
   // 购买卡密
   const buyCardKeyMutation = useMutation({
-    mutationFn: async ({ programId, duration }: { programId: string; duration: number }) => {
+    mutationFn: async ({ programId, duration, quantity = 1 }: { programId: string; duration: number; quantity?: number }) => {
       const program = programs?.find(p => p.id === programId);
       if (!program) throw new Error('程序不存在');
       
-      if (userProfile!.balance < program.price) {
-        throw new Error('余额不足，请联系管理员充值');
+      const totalCost = program.price * quantity;
+      if (userProfile!.balance < totalCost) {
+        throw new Error(`余额不足，需要¥${totalCost.toFixed(2)}，当前余额¥${userProfile!.balance.toFixed(2)}`);
       }
 
-      // 创建订单
-      const { error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          user_id: userProfile!.id,
-          program_id: programId,
-          amount: program.price,
-          cost_amount: program.cost_price,
-          status: 'paid',
-          payment_method: 'balance'
-        });
-
-      if (orderError) throw orderError;
-
-      // 生成卡密
-      const { data: cardKey, error: rpcError } = await supabase.rpc('generate_card_key');
-      if (rpcError) throw rpcError;
-      
+      const generatedCards: string[] = [];
       const expireDate = new Date();
       expireDate.setDate(expireDate.getDate() + duration);
 
-      const { error: keyError } = await supabase
-        .from('card_keys')
-        .insert({
-          card_key: cardKey,
-          program_id: programId,
-          user_id: userProfile!.id,
-          expire_at: expireDate.toISOString(),
-          duration_days: duration,
-          created_by: userProfile!.id,
-          status: 'unused'
-        });
+      // 批量生成卡密
+      for (let i = 0; i < quantity; i++) {
+        // 生成卡密
+        const { data: cardKey, error: rpcError } = await supabase.rpc('generate_card_key');
+        if (rpcError) throw rpcError;
 
-      if (keyError) throw keyError;
+        // 插入卡密记录
+        const { error: keyError } = await supabase
+          .from('card_keys')
+          .insert({
+            card_key: cardKey,
+            program_id: programId,
+            user_id: userProfile!.id,
+            expire_at: expireDate.toISOString(),
+            duration_days: duration,
+            created_by: userProfile!.id,
+            status: 'unused',
+            max_machines: program.max_machines || 1
+          });
+
+        if (keyError) throw keyError;
+
+        // 创建订单
+        await supabase
+          .from('orders')
+          .insert({
+            user_id: userProfile!.id,
+            program_id: programId,
+            amount: program.price,
+            cost_amount: program.cost_price,
+            status: 'paid',
+            payment_method: 'balance'
+          });
+
+        generatedCards.push(cardKey);
+      }
 
       // 更新余额
       const { error: balanceError } = await supabase
         .from('profiles')
-        .update({ balance: userProfile!.balance - program.price })
+        .update({ balance: userProfile!.balance - totalCost })
         .eq('id', userProfile!.id);
 
       if (balanceError) throw balanceError;
@@ -147,21 +157,23 @@ const Index = () => {
         .from('balance_records')
         .insert({
           user_id: userProfile!.id,
-          amount: -program.price,
+          amount: -totalCost,
           type: 'consume',
-          description: `购买${program.name}卡密`,
+          description: `购买${program.name}卡密 x${quantity}`,
           balance_before: userProfile!.balance,
-          balance_after: userProfile!.balance - program.price
+          balance_after: userProfile!.balance - totalCost
         });
 
-      return cardKey;
+      return generatedCards;
     },
-    onSuccess: () => {
+    onSuccess: (generatedCards) => {
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
       queryClient.invalidateQueries({ queryKey: ['my-card-keys'] });
+      setPurchasedCards(generatedCards);
+      setShowPurchaseResults(true);
       toast({
         title: "购买成功",
-        description: "卡密已生成，请查看我的卡密",
+        description: `已生成${generatedCards.length}张卡密`,
       });
     },
     onError: (error) => {
@@ -513,61 +525,100 @@ const Index = () => {
                             {program.description || '高质量的软件授权服务'}
                           </p>
                           
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button 
-                                className="w-full" 
-                                onClick={() => setSelectedProgram(program.id)}
-                                disabled={userProfile!.balance < program.price}
-                              >
-                                {userProfile!.balance < program.price ? '余额不足' : '立即购买'}
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>购买 {program.name}</DialogTitle>
-                              </DialogHeader>
-                              <div className="space-y-4">
-                                <div className="space-y-2">
-                                  <Label>有效期（天）</Label>
-                                  <Select defaultValue="30">
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="选择有效期" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="7">7天 - ¥{program.price}</SelectItem>
-                                      <SelectItem value="30">30天 - ¥{program.price}</SelectItem>
-                                      <SelectItem value="90">90天 - ¥{(program.price * 2.5).toFixed(2)}</SelectItem>
-                                      <SelectItem value="365">365天 - ¥{(program.price * 10).toFixed(2)}</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                
-                                <div className="bg-muted p-4 rounded-lg">
-                                  <div className="flex justify-between">
-                                    <span>当前余额：</span>
-                                    <span>¥{userProfile?.balance?.toFixed(2)}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>购买金额：</span>
-                                    <span>¥{program.price}</span>
-                                  </div>
-                                  <div className="flex justify-between font-bold">
-                                    <span>购买后余额：</span>
-                                    <span>¥{(userProfile!.balance - program.price).toFixed(2)}</span>
-                                  </div>
-                                </div>
+                           <Dialog>
+                             <DialogTrigger asChild>
+                               <Button 
+                                 className="w-full" 
+                                 onClick={() => {
+                                   setSelectedProgram(program.id);
+                                   setPurchaseQuantity(1);
+                                 }}
+                                 disabled={userProfile!.balance < program.price}
+                               >
+                                 {userProfile!.balance < program.price ? '余额不足' : '立即购买'}
+                               </Button>
+                             </DialogTrigger>
+                             <DialogContent>
+                               <DialogHeader>
+                                 <DialogTitle>购买 {program.name}</DialogTitle>
+                               </DialogHeader>
+                               <div className="space-y-4">
+                                 <div className="space-y-2">
+                                   <Label>数量</Label>
+                                   <Input
+                                     type="number"
+                                     min="1"
+                                     max="100"
+                                     value={purchaseQuantity}
+                                     onChange={(e) => setPurchaseQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                                   />
+                                 </div>
 
-                                <Button 
-                                  className="w-full" 
-                                  onClick={() => buyCardKeyMutation.mutate({ programId: program.id, duration: 30 })}
-                                  disabled={buyCardKeyMutation.isPending}
-                                >
-                                  {buyCardKeyMutation.isPending ? '购买中...' : '确认购买'}
-                                </Button>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
+                                 <div className="space-y-2">
+                                   <Label>有效期（天）</Label>
+                                   <Select defaultValue="30">
+                                     <SelectTrigger>
+                                       <SelectValue placeholder="选择有效期" />
+                                     </SelectTrigger>
+                                     <SelectContent>
+                                       <SelectItem value="7">7天</SelectItem>
+                                       <SelectItem value="30">30天</SelectItem>
+                                       <SelectItem value="90">90天</SelectItem>
+                                       <SelectItem value="365">365天</SelectItem>
+                                     </SelectContent>
+                                   </Select>
+                                 </div>
+
+                                 {program.max_machines && (
+                                   <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                                     <p className="text-sm text-blue-700 dark:text-blue-300">
+                                       <strong>机器限制:</strong> 每张卡密最多可绑定 {program.max_machines} 台机器
+                                     </p>
+                                     {program.machine_limit_note && (
+                                       <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                                         {program.machine_limit_note}
+                                       </p>
+                                     )}
+                                   </div>
+                                 )}
+                                 
+                                 <div className="bg-muted p-4 rounded-lg">
+                                   <div className="flex justify-between">
+                                     <span>当前余额：</span>
+                                     <span>¥{userProfile?.balance?.toFixed(2)}</span>
+                                   </div>
+                                   <div className="flex justify-between">
+                                     <span>单价：</span>
+                                     <span>¥{program.price}</span>
+                                   </div>
+                                   <div className="flex justify-between">
+                                     <span>数量：</span>
+                                     <span>{purchaseQuantity}</span>
+                                   </div>
+                                   <div className="flex justify-between font-semibold">
+                                     <span>总价：</span>
+                                     <span>¥{(program.price * purchaseQuantity).toFixed(2)}</span>
+                                   </div>
+                                   <div className="flex justify-between font-bold">
+                                     <span>购买后余额：</span>
+                                     <span>¥{(userProfile!.balance - program.price * purchaseQuantity).toFixed(2)}</span>
+                                   </div>
+                                 </div>
+
+                                 <Button 
+                                   className="w-full" 
+                                   onClick={() => buyCardKeyMutation.mutate({ 
+                                     programId: program.id, 
+                                     duration: 30, 
+                                     quantity: purchaseQuantity 
+                                   })}
+                                   disabled={buyCardKeyMutation.isPending || userProfile!.balance < (program.price * purchaseQuantity)}
+                                 >
+                                   {buyCardKeyMutation.isPending ? '购买中...' : `确认购买 ${purchaseQuantity} 张卡密`}
+                                 </Button>
+                               </div>
+                             </DialogContent>
+                           </Dialog>
                         </CardContent>
                       </Card>
                     ))}
@@ -604,47 +655,115 @@ const Index = () => {
                         <TableHead>操作</TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody>
-                      {myCardKeys?.map((cardKey) => (
-                        <TableRow key={cardKey.id}>
-                          <TableCell className="font-medium">
-                            {(cardKey as any).programs?.name}
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">
-                            {cardKey.card_key}
-                          </TableCell>
-                          <TableCell>
-                            {getStatusBadge(cardKey.status)}
-                          </TableCell>
-                          <TableCell>
-                            {cardKey.expire_at ? new Date(cardKey.expire_at).toLocaleDateString() : '-'}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => copyCardKey(cardKey.card_key)}
-                              >
-                                <Copy className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => clearIPMutation.mutate(cardKey.id)}
-                                disabled={clearIPMutation.isPending}
-                              >
-                                <RefreshCw className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
+                     <TableBody>
+                       {myCardKeys?.map((cardKey) => (
+                         <TableRow key={cardKey.id}>
+                           <TableCell className="font-medium">
+                             {(cardKey as any).programs?.name}
+                           </TableCell>
+                           <TableCell className="font-mono text-sm">
+                             {cardKey.card_key}
+                           </TableCell>
+                           <TableCell>
+                             {getStatusBadge(cardKey.status)}
+                             {cardKey.max_machines && (
+                               <div className="text-xs text-muted-foreground mt-1">
+                                 机器: {cardKey.used_machines || 0}/{cardKey.max_machines}
+                               </div>
+                             )}
+                           </TableCell>
+                           <TableCell>
+                             {cardKey.expire_at ? new Date(cardKey.expire_at).toLocaleString() : '-'}
+                           </TableCell>
+                           <TableCell>
+                             <div className="flex items-center space-x-2">
+                               <Button
+                                 variant="outline"
+                                 size="sm"
+                                 onClick={() => copyCardKey(cardKey.card_key)}
+                               >
+                                 <Copy className="h-3 w-3" />
+                               </Button>
+                               {cardKey.status === 'used' && cardKey.bound_machine_codes && cardKey.bound_machine_codes.length > 0 && (
+                                 <Button
+                                   variant="outline"
+                                   size="sm"
+                                   onClick={() => clearIPMutation.mutate(cardKey.id)}
+                                   disabled={clearIPMutation.isPending}
+                                   title="清除机器绑定"
+                                 >
+                                   <RefreshCw className="h-3 w-3" />
+                                 </Button>
+                               )}
+                             </div>
+                           </TableCell>
+                         </TableRow>
+                       ))}
+                     </TableBody>
                   </Table>
                 )}
-              </CardContent>
+               </CardContent>
             </Card>
+
+            {/* 购买成功结果显示 */}
+            {showPurchaseResults && purchasedCards.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-600">
+                    <CreditCard className="h-5 w-5" />
+                    购买成功 - 您的卡密
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                    <p className="text-green-700 dark:text-green-300 mb-3">
+                      恭喜！已成功生成 {purchasedCards.length} 张卡密，请妥善保存：
+                    </p>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {purchasedCards.map((cardKey, index) => (
+                        <div key={cardKey} className="flex items-center justify-between bg-white dark:bg-gray-800 p-3 rounded border">
+                          <div className="flex-1">
+                            <span className="text-sm text-muted-foreground">卡密 {index + 1}:</span>
+                            <div className="font-mono text-sm font-semibold">{cardKey}</div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyCardKey(cardKey)}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const allCards = purchasedCards.join('\n');
+                          navigator.clipboard.writeText(allCards);
+                          toast({
+                            title: "已复制",
+                            description: "所有卡密已复制到剪贴板",
+                          });
+                        }}
+                      >
+                        复制全部
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowPurchaseResults(false);
+                          setPurchasedCards([]);
+                        }}
+                      >
+                        关闭
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* 账户设置 */}

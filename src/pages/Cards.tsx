@@ -22,6 +22,9 @@ interface CardKey {
   duration_days: number;
   created_at: string;
   used_at: string | null;
+  max_machines?: number;
+  used_machines?: number;
+  bound_machine_codes?: string[];
   programs: {
     name: string;
     price: number;
@@ -757,10 +760,31 @@ const Cards = () => {
                   </span>
                 </div>
 
+                {(card.max_machines || card.used_machines) && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">机器限制</span>
+                    <span className="text-sm font-medium">
+                      {card.max_machines ? (
+                        `${card.used_machines || 0}/${card.max_machines}`
+                      ) : (
+                        "无限制"
+                      )}
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">创建时间</span>
                   <span className="text-sm">
-                    {new Date(card.created_at).toLocaleDateString()}
+                    {new Date(card.created_at).toLocaleString('zh-CN', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      hour12: false
+                    })}
                   </span>
                 </div>
 
@@ -768,7 +792,15 @@ const Cards = () => {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">使用时间</span>
                     <span className="text-sm">
-                      {new Date(card.used_at).toLocaleDateString()}
+                      {new Date(card.used_at).toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false
+                      })}
                     </span>
                   </div>
                 )}

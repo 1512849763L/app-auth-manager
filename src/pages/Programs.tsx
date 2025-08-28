@@ -25,6 +25,8 @@ const Programs = () => {
     price: "",
     cost_price: "",
     status: "active",
+    max_machines: "",
+    machine_limit_note: "",
   });
 
   useEffect(() => {
@@ -108,6 +110,8 @@ const Programs = () => {
           price: parseFloat(formData.price),
           cost_price: parseFloat(formData.cost_price),
           status: formData.status,
+          max_machines: formData.max_machines ? parseInt(formData.max_machines) : null,
+          machine_limit_note: formData.machine_limit_note || null,
           created_by: user.id,
         });
 
@@ -131,6 +135,8 @@ const Programs = () => {
         price: "",
         cost_price: "",
         status: "active",
+        max_machines: "",
+        machine_limit_note: "",
       });
       setShowCreateDialog(false);
       fetchPrograms();
@@ -265,6 +271,29 @@ const Programs = () => {
                   </Select>
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="max_machines">最大机器数</Label>
+                  <Input
+                    id="max_machines"
+                    type="number"
+                    min="1"
+                    placeholder="留空为不限制"
+                    value={formData.max_machines}
+                    onChange={(e) => setFormData({ ...formData, max_machines: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="machine_limit_note">机器数量说明</Label>
+                  <Textarea
+                    id="machine_limit_note"
+                    placeholder="例如：单机版、三机版、不限机器"
+                    value={formData.machine_limit_note}
+                    onChange={(e) => setFormData({ ...formData, machine_limit_note: e.target.value })}
+                    rows={2}
+                  />
+                </div>
+
                 <div className="flex justify-end space-x-2">
                   <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
                     取消
@@ -306,6 +335,21 @@ const Programs = () => {
                     </div>
                   )}
                 </div>
+
+                {/* 显示机器数量限制信息 */}
+                {(program.max_machines || program.machine_limit_note) && (
+                  <div className="space-y-2 border-t pt-3">
+                    <Label className="text-sm">机器限制</Label>
+                    <div className="text-sm space-y-1">
+                      {program.max_machines && (
+                        <p className="text-muted-foreground">最大机器数: {program.max_machines}</p>
+                      )}
+                      {program.machine_limit_note && (
+                        <p className="text-muted-foreground">{program.machine_limit_note}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Only show API key section if program has api_key (for admins/agents) */}
                 {program.api_key && (

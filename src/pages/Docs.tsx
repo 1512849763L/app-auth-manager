@@ -165,16 +165,17 @@ Content-Type: application/json`)}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Badge>POST</Badge>
-                    <code className="text-sm">/rest/v1/rpc/verify_card_key</code>
+                    <code className="text-sm">/rest/v1/rpc/verify_card_key_with_machine</code>
                   </div>
-                  <p className="text-sm text-muted-foreground">验证卡密是否有效</p>
+                  <p className="text-sm text-muted-foreground">验证卡密并绑定机器码</p>
                   <div className="space-y-2">
                     <h4 className="font-medium text-sm">请求参数：</h4>
                     <div className="relative">
                       <pre className="bg-muted p-3 rounded-lg text-sm overflow-x-auto">
                         <code>{`{
-  "card_key": "XXXX-XXXX-XXXX-XXXX",
-  "program_id": "program-uuid"
+  "p_card_key": "XXXX-XXXX-XXXX-XXXX",
+  "p_machine_code": "MACHINE-CODE-123",
+  "p_program_id": "program-uuid"
 }`}</code>
                       </pre>
                       <Button
@@ -182,8 +183,9 @@ Content-Type: application/json`)}
                         size="sm"
                         className="absolute top-2 right-2"
                         onClick={() => copyToClipboard(`{
-  "card_key": "XXXX-XXXX-XXXX-XXXX",
-  "program_id": "program-uuid"
+  "p_card_key": "XXXX-XXXX-XXXX-XXXX",
+  "p_machine_code": "MACHINE-CODE-123",
+  "p_program_id": "program-uuid"
 }`)}
                       >
                         <Copy className="h-4 w-4" />
@@ -196,11 +198,11 @@ Content-Type: application/json`)}
                       <pre className="bg-muted p-3 rounded-lg text-sm overflow-x-auto">
                         <code>{`{
   "success": true,
-  "data": {
-    "valid": true,
-    "expire_at": "2024-12-31T23:59:59Z",
-    "user_id": "user-uuid"
-  }
+  "message": "验证成功",
+  "valid": true,
+  "expire_at": "2024-12-31T23:59:59Z",
+  "used_machines": 1,
+  "max_machines": 3
 }`}</code>
                       </pre>
                       <Button
@@ -209,11 +211,46 @@ Content-Type: application/json`)}
                         className="absolute top-2 right-2"
                         onClick={() => copyToClipboard(`{
   "success": true,
-  "data": {
-    "valid": true,
-    "expire_at": "2024-12-31T23:59:59Z",
-    "user_id": "user-uuid"
-  }
+  "message": "验证成功",
+  "valid": true,
+  "expire_at": "2024-12-31T23:59:59Z",
+  "used_machines": 1,
+  "max_machines": 3
+}`)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* 机器码绑定 */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Badge>POST</Badge>
+                    <code className="text-sm">/rest/v1/rpc/bind_machine_code</code>
+                  </div>
+                  <p className="text-sm text-muted-foreground">为卡密绑定新的机器码</p>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">请求参数：</h4>
+                    <div className="relative">
+                      <pre className="bg-muted p-3 rounded-lg text-sm overflow-x-auto">
+                        <code>{`{
+  "p_card_key": "XXXX-XXXX-XXXX-XXXX",
+  "p_machine_code": "MACHINE-CODE-456", 
+  "p_program_id": "program-uuid"
+}`}</code>
+                      </pre>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => copyToClipboard(`{
+  "p_card_key": "XXXX-XXXX-XXXX-XXXX",
+  "p_machine_code": "MACHINE-CODE-456",
+  "p_program_id": "program-uuid"
 }`)}
                       >
                         <Copy className="h-4 w-4" />
@@ -279,9 +316,9 @@ Content-Type: application/json`)}
                       <div>
                         <h3 className="font-semibold mb-2">验证卡密</h3>
                         <div className="relative">
-                          <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">
-                            <code>{`async function verifyCardKey(cardKey, programId) {
-  const response = await fetch('${baseUrl}/rest/v1/rpc/verify_card_key', {
+                           <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">
+                             <code>{`async function verifyCardKeyWithMachine(cardKey, machineCode, programId) {
+  const response = await fetch('${baseUrl}/rest/v1/rpc/verify_card_key_with_machine', {
     method: 'POST',
     headers: {
       'Authorization': 'Bearer YOUR_API_KEY',
@@ -289,31 +326,34 @@ Content-Type: application/json`)}
       'apikey': 'YOUR_ANON_KEY'
     },
     body: JSON.stringify({
-      card_key: cardKey,
-      program_id: programId
+      p_card_key: cardKey,
+      p_machine_code: machineCode,
+      p_program_id: programId
     })
   });
 
   const result = await response.json();
   
-  if (result.success && result.data.valid) {
-    console.log('卡密验证成功');
+  if (result.success && result.valid) {
+    console.log('卡密验证成功，机器码已绑定');
+    console.log('已使用机器数:', result.used_machines);
+    console.log('最大机器数:', result.max_machines);
     return true;
   } else {
-    console.log('卡密验证失败');
+    console.log('验证失败:', result.message);
     return false;
   }
 }
 
 // 使用示例
-verifyCardKey('XXXX-XXXX-XXXX-XXXX', 'program-uuid');`}</code>
-                          </pre>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute top-2 right-2"
-                            onClick={() => copyToClipboard(`async function verifyCardKey(cardKey, programId) {
-  const response = await fetch('${baseUrl}/rest/v1/rpc/verify_card_key', {
+verifyCardKeyWithMachine('XXXX-XXXX-XXXX-XXXX', 'MACHINE-CODE-123', 'program-uuid');`}</code>
+                           </pre>
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             className="absolute top-2 right-2"
+                             onClick={() => copyToClipboard(`async function verifyCardKeyWithMachine(cardKey, machineCode, programId) {
+  const response = await fetch('${baseUrl}/rest/v1/rpc/verify_card_key_with_machine', {
     method: 'POST',
     headers: {
       'Authorization': 'Bearer YOUR_API_KEY',
@@ -321,27 +361,30 @@ verifyCardKey('XXXX-XXXX-XXXX-XXXX', 'program-uuid');`}</code>
       'apikey': 'YOUR_ANON_KEY'
     },
     body: JSON.stringify({
-      card_key: cardKey,
-      program_id: programId
+      p_card_key: cardKey,
+      p_machine_code: machineCode,
+      p_program_id: programId
     })
   });
 
   const result = await response.json();
   
-  if (result.success && result.data.valid) {
-    console.log('卡密验证成功');
+  if (result.success && result.valid) {
+    console.log('卡密验证成功，机器码已绑定');
+    console.log('已使用机器数:', result.used_machines);
+    console.log('最大机器数:', result.max_machines);
     return true;
   } else {
-    console.log('卡密验证失败');
+    console.log('验证失败:', result.message);
     return false;
   }
 }
 
 // 使用示例
-verifyCardKey('XXXX-XXXX-XXXX-XXXX', 'program-uuid');`)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
+verifyCardKeyWithMachine('XXXX-XXXX-XXXX-XXXX', 'MACHINE-CODE-123', 'program-uuid');`)}
+                           >
+                             <Copy className="h-4 w-4" />
+                           </Button>
                         </div>
                       </div>
                     </div>
