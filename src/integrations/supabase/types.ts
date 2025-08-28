@@ -318,6 +318,35 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_programs_with_api_keys: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          api_key: string
+          cost_price: number
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          name: string
+          price: number
+          status: string
+          updated_at: string
+          version: string
+        }[]
+      }
+      get_public_programs: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          description: string
+          id: string
+          name: string
+          price: number
+          status: string
+          updated_at: string
+          version: string
+        }[]
+      }
     }
     Enums: {
       user_role: "admin" | "agent" | "user"
