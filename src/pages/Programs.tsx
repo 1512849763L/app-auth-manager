@@ -17,6 +17,7 @@ const Programs = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showApiKey, setShowApiKey] = useState<{ [key: string]: boolean }>({});
+  const [userRole, setUserRole] = useState<string | null>(null);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -51,6 +52,8 @@ const Programs = () => {
         .select('role')
         .eq('id', user.id)
         .single();
+
+      setUserRole(profile?.role || null);
 
       let data, error;
 
@@ -170,6 +173,49 @@ const Programs = () => {
       ...prev,
       [programId]: !prev[programId]
     }));
+  };
+
+  const deleteProgram = async (programId: string, programName: string) => {
+    if (!window.confirm(`确定要删除程序 "${programName}" 吗？\n\n⚠️ 注意：\n• 删除前请确保没有关联的有效卡密\n• 此操作不可撤销`)) {
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-program', {
+        body: { programId }
+      });
+
+      if (error) {
+        toast({
+          title: "删除失败",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.error) {
+        toast({
+          title: "删除失败",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "删除成功",
+        description: "程序已成功删除",
+      });
+
+      fetchPrograms();
+    } catch (error) {
+      toast({
+        title: "删除失败",
+        description: "系统错误，请稍后重试",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) {
@@ -395,6 +441,17 @@ const Programs = () => {
                     <Settings className="w-3 h-3 mr-1" />
                     设置
                   </Button>
+                  {userRole === 'admin' && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => deleteProgram(program.id, program.name)}
+                      className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      删除
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

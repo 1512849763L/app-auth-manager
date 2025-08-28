@@ -2,3 +2,9 @@ project_id = "sqcvacdpdjeooqyrblbu"
 
 [functions.edit-card-key]
 verify_jwt = true
+
+[functions.delete-card-key]
+verify_jwt = true
+
+[functions.delete-program]
+verify_jwt = true

@@ -383,6 +383,58 @@ const Cards = () => {
     }
   };
 
+  const deleteCardKey = async (cardId: string, cardKey: string, status: string) => {
+    const confirmMessage = status === 'unused' 
+      ? `确定要删除卡密 "${cardKey}" 吗？\n\n⚠️ 注意：\n• 如果该卡密已被用户购买，将自动退还余额\n• 此操作不可撤销` 
+      : `确定要删除卡密 "${cardKey}" 吗？\n\n⚠️ 注意：\n• 此操作不可撤销`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-card-key', {
+        body: { cardId }
+      });
+
+      if (error) {
+        toast({
+          title: "删除失败",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.error) {
+        toast({
+          title: "删除失败",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      let successMessage = "卡密删除成功";
+      if (data.refunded && data.refundAmount > 0) {
+        successMessage += `，已退还 ¥${data.refundAmount.toFixed(2)}`;
+      }
+
+      toast({
+        title: "删除成功",
+        description: successMessage,
+      });
+
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "删除失败",
+        description: "系统错误，请稍后重试",
+        variant: "destructive",
+      });
+    }
+  };
+
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -877,6 +929,19 @@ const Cards = () => {
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
+                              deleteCardKey(card.id, card.card_key, card.status);
+                            }}
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                            title="删除卡密"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                          
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
                               const cardItem = (e.target as HTMLElement).closest('.card-item') as HTMLElement;
                               const details = cardItem?.querySelector('.card-details') as HTMLElement;
                               if (details) {
@@ -1014,6 +1079,15 @@ const Cards = () => {
                               管理绑定
                             </Button>
                           )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deleteCardKey(card.id, card.card_key, card.status)}
+                            className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            删除
+                          </Button>
                         </div>
                       </div>
                     </div>
