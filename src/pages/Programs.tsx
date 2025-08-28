@@ -1,0 +1,345 @@
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { Plus, Settings, Eye, EyeOff, Copy, Trash2, Edit } from "lucide-react";
+import { Layout } from "../components/Layout";
+
+const Programs = () => {
+  const [programs, setPrograms] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showApiKey, setShowApiKey] = useState<{ [key: string]: boolean }>({});
+  const { toast } = useToast();
+
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    price: "",
+    cost_price: "",
+    status: "active",
+  });
+
+  useEffect(() => {
+    fetchPrograms();
+  }, []);
+
+  const fetchPrograms = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('programs')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        toast({
+          title: "获取程序列表失败",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setPrograms(data || []);
+    } catch (error) {
+      toast({
+        title: "获取程序列表错误",
+        description: "系统错误，请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateApiKey = () => {
+    return Array.from({ length: 32 }, () => 
+      Math.random().toString(36)[2] || '0'
+    ).join('').toUpperCase();
+  };
+
+  const handleCreateProgram = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('programs')
+        .insert({
+          name: formData.name,
+          description: formData.description,
+          api_key: generateApiKey(),
+          price: parseFloat(formData.price),
+          cost_price: parseFloat(formData.cost_price),
+          status: formData.status,
+          created_by: user.id,
+        });
+
+      if (error) {
+        toast({
+          title: "创建程序失败",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "程序创建成功",
+        description: "新程序已添加到系统中",
+      });
+
+      setFormData({
+        name: "",
+        description: "",
+        price: "",
+        cost_price: "",
+        status: "active",
+      });
+      setShowCreateDialog(false);
+      fetchPrograms();
+    } catch (error) {
+      toast({
+        title: "创建程序失败",
+        description: "系统错误，请稍后重试",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "复制成功",
+        description: "API密钥已复制到剪贴板",
+      });
+    } catch (error) {
+      toast({
+        title: "复制失败",
+        description: "无法复制到剪贴板",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleApiKeyVisibility = (programId: string) => {
+    setShowApiKey(prev => ({
+      ...prev,
+      [programId]: !prev[programId]
+    }));
+  };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">程序管理</h1>
+            <p className="text-muted-foreground mt-2">
+              管理您的授权程序，配置API密钥和价格策略
+            </p>
+          </div>
+
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                添加程序
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>创建新程序</DialogTitle>
+                <DialogDescription>
+                  填写程序信息来创建一个新的授权程序
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleCreateProgram} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">程序名称</Label>
+                  <Input
+                    id="name"
+                    placeholder="请输入程序名称"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description">程序描述</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="请输入程序描述"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={3}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="price">售价 (元)</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="cost_price">成本价 (元)</Label>
+                    <Input
+                      id="cost_price"
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={formData.cost_price}
+                      onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status">状态</Label>
+                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">启用</SelectItem>
+                      <SelectItem value="inactive">禁用</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>
+                    取消
+                  </Button>
+                  <Button type="submit">
+                    创建程序
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {programs.map((program) => (
+            <Card key={program.id} className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">{program.name}</CardTitle>
+                  <Badge variant={program.status === 'active' ? 'default' : 'secondary'}>
+                    {program.status === 'active' ? '启用' : '禁用'}
+                  </Badge>
+                </div>
+                <CardDescription>
+                  {program.description || '暂无描述'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">售价</p>
+                    <p className="font-medium text-green-600">¥{program.price}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">成本价</p>
+                    <p className="font-medium text-orange-600">¥{program.cost_price}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm">API密钥</Label>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleApiKeyVisibility(program.id)}
+                      >
+                        {showApiKey[program.id] ? (
+                          <EyeOff className="w-3 h-3" />
+                        ) : (
+                          <Eye className="w-3 h-3" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyToClipboard(program.api_key)}
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="p-2 bg-muted rounded text-xs font-mono">
+                    {showApiKey[program.id] 
+                      ? program.api_key 
+                      : '•'.repeat(program.api_key.length)
+                    }
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" size="sm">
+                    <Edit className="w-3 h-3 mr-1" />
+                    编辑
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <Settings className="w-3 h-3 mr-1" />
+                    设置
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {programs.length === 0 && (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+              <Settings className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mb-2">暂无程序</h3>
+            <p className="text-muted-foreground mb-4">开始创建您的第一个授权程序</p>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              添加程序
+            </Button>
+          </div>
+        )}
+      </div>
+    </Layout>
+  );
+};
+
+export default Programs;
