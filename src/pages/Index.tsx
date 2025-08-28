@@ -1,165 +1,546 @@
-import React from 'react';
-import { Layout } from "../components/Layout";
+import React, { useState } from "react";
+import { Layout } from "@/components/Layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  ShoppingCart, 
+  CreditCard, 
+  Key, 
+  Wallet, 
+  Shield,
+  Copy,
+  Trash2,
+  RefreshCw,
+  Plus
+} from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [rechargeAmount, setRechargeAmount] = useState("");
+  const [selectedProgram, setSelectedProgram] = useState<string>("");
+
+  // 获取用户信息
+  const { data: userProfile, isLoading: loadingProfile } = useQuery({
+    queryKey: ['user-profile'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('未登录');
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+        
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  // 获取可购买的程序
+  const { data: programs, isLoading: loadingPrograms } = useQuery({
+    queryKey: ['available-programs'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('programs')
+        .select('*')
+        .eq('status', 'active')
+        .order('name', { ascending: true });
+      
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  // 获取我的卡密
+  const { data: myCardKeys, isLoading: loadingKeys } = useQuery({
+    queryKey: ['my-card-keys'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('card_keys')
+        .select(`
+          *,
+          programs!inner(name, price)
+        `)
+        .eq('user_id', userProfile?.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!userProfile?.id
+  });
+
+  // 购买卡密
+  const buyCardKeyMutation = useMutation({
+    mutationFn: async ({ programId, duration }: { programId: string; duration: number }) => {
+      const program = programs?.find(p => p.id === programId);
+      if (!program) throw new Error('程序不存在');
+      
+      if (userProfile!.balance < program.price) {
+        throw new Error('余额不足，请先充值');
+      }
+
+      // 创建订单
+      const { error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: userProfile!.id,
+          program_id: programId,
+          amount: program.price,
+          cost_amount: program.cost_price,
+          status: 'paid',
+          payment_method: 'balance'
+        });
+
+      if (orderError) throw orderError;
+
+      // 生成卡密
+      const { data: cardKey, error: rpcError } = await supabase.rpc('generate_card_key');
+      if (rpcError) throw rpcError;
+      
+      const expireDate = new Date();
+      expireDate.setDate(expireDate.getDate() + duration);
+
+      const { error: keyError } = await supabase
+        .from('card_keys')
+        .insert({
+          card_key: cardKey,
+          program_id: programId,
+          user_id: userProfile!.id,
+          expire_at: expireDate.toISOString(),
+          duration_days: duration,
+          created_by: userProfile!.id,
+          status: 'unused'
+        });
+
+      if (keyError) throw keyError;
+
+      // 更新余额
+      const { error: balanceError } = await supabase
+        .from('profiles')
+        .update({ balance: userProfile!.balance - program.price })
+        .eq('id', userProfile!.id);
+
+      if (balanceError) throw balanceError;
+
+      // 记录余额变动
+      await supabase
+        .from('balance_records')
+        .insert({
+          user_id: userProfile!.id,
+          amount: -program.price,
+          type: 'expense',
+          description: `购买${program.name}卡密`,
+          balance_before: userProfile!.balance,
+          balance_after: userProfile!.balance - program.price
+        });
+
+      return cardKey;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['my-card-keys'] });
+      toast({
+        title: "购买成功",
+        description: "卡密已生成，请查看我的卡密",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "购买失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // 清除IP绑定
+  const clearIPMutation = useMutation({
+    mutationFn: async (keyId: string) => {
+      const { error } = await supabase
+        .from('card_keys')
+        .update({ 
+          // 这里可以添加清除IP的逻辑，比如清空ip_address字段
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', keyId)
+        .eq('user_id', userProfile!.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-card-keys'] });
+      toast({
+        title: "操作成功",
+        description: "IP绑定已清除",
+      });
+    }
+  });
+
+  // 复制卡密
+  const copyCardKey = (cardKey: string) => {
+    navigator.clipboard.writeText(cardKey);
+    toast({
+      title: "已复制",
+      description: "卡密已复制到剪贴板",
+    });
+  };
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, "default" | "secondary" | "destructive"> = {
+      unused: "default",
+      used: "secondary",
+      expired: "destructive"
+    };
+    
+    const labels: Record<string, string> = {
+      unused: "未使用",
+      used: "已使用",
+      expired: "已过期"
+    };
+    
+    return (
+      <Badge variant={variants[status] || "secondary"}>
+        {labels[status] || status}
+      </Badge>
+    );
+  };
+
+  if (loadingProfile) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+            <p className="text-muted-foreground mt-2">加载中...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // 管理员看到管理界面
+  if (userProfile?.role === 'admin') {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">管理控制台</h1>
+            <p className="text-muted-foreground">
+              管理您的程序授权、卡密生成和用户权限
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">程序管理</CardTitle>
+                <Shield className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{programs?.length || 0}</div>
+                <p className="text-xs text-muted-foreground">个活跃程序</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">账户余额</CardTitle>
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">¥{userProfile?.balance?.toFixed(2) || '0.00'}</div>
+                <p className="text-xs text-muted-foreground">当前余额</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">我的卡密</CardTitle>
+                <Key className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{myCardKeys?.length || 0}</div>
+                <p className="text-xs text-muted-foreground">张卡密</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">系统角色</CardTitle>
+                <Shield className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">管理员</div>
+                <p className="text-xs text-muted-foreground">完全权限</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="text-center">
+            <p className="text-muted-foreground mb-4">使用侧边栏导航到各管理功能</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // 普通用户看到用户界面
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            仪表盘
-          </h1>
-          <p className="text-muted-foreground">
-            欢迎使用卡密授权管理系统，这里是您的系统概览
-          </p>
-        </div>
-
-        {/* 快速统计 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-card/50 backdrop-blur-sm rounded-xl p-6 border border-border/50">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-blue-500">0</p>
-                <p className="text-sm text-muted-foreground mt-1">活跃程序</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-              </div>
-            </div>
+        {/* 用户欢迎信息 */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">欢迎回来，{userProfile?.username}</h1>
+            <p className="text-muted-foreground">管理您的卡密和账户余额</p>
           </div>
-
-          <div className="bg-card/50 backdrop-blur-sm rounded-xl p-6 border border-border/50">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-green-500">0</p>
-                <p className="text-sm text-muted-foreground mt-1">有效卡密</p>
-              </div>
-              <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-card/50 backdrop-blur-sm rounded-xl p-6 border border-border/50">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-purple-500">0</p>
-                <p className="text-sm text-muted-foreground mt-1">注册用户</p>
-              </div>
-              <div className="w-12 h-12 bg-purple-500/10 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-card/50 backdrop-blur-sm rounded-xl p-6 border border-border/50">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-orange-500">¥0.00</p>
-                <p className="text-sm text-muted-foreground mt-1">总收益</p>
-              </div>
-              <div className="w-12 h-12 bg-orange-500/10 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                </svg>
-              </div>
-            </div>
+          <div className="text-right">
+            <div className="text-sm text-muted-foreground">账户余额</div>
+            <div className="text-2xl font-bold">¥{userProfile?.balance?.toFixed(2) || '0.00'}</div>
           </div>
         </div>
 
-        {/* 快速操作 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="bg-card/50 backdrop-blur-sm rounded-xl p-6 border border-border/50">
-            <h3 className="text-lg font-semibold text-foreground mb-4">快速操作</h3>
-            <div className="space-y-3">
-              <button className="w-full text-left p-3 rounded-lg border border-border/50 hover:bg-accent/50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-blue-500/10 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">添加程序</p>
-                    <p className="text-xs text-muted-foreground">创建新的授权程序</p>
-                  </div>
-                </div>
-              </button>
+        <Tabs defaultValue="purchase" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="purchase">购买卡密</TabsTrigger>
+            <TabsTrigger value="recharge">充值余额</TabsTrigger>
+            <TabsTrigger value="my-keys">我的卡密</TabsTrigger>
+          </TabsList>
 
-              <button className="w-full text-left p-3 rounded-lg border border-border/50 hover:bg-accent/50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                    </svg>
+          {/* 购买卡密 */}
+          <TabsContent value="purchase" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShoppingCart className="h-5 w-5" />
+                  购买卡密
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingPrograms ? (
+                  <div className="text-center py-4">加载中...</div>
+                ) : programs?.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    暂无可购买的程序
                   </div>
-                  <div>
-                    <p className="font-medium text-foreground">生成卡密</p>
-                    <p className="text-xs text-muted-foreground">批量生成授权卡密</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {programs?.map((program) => (
+                      <Card key={program.id} className="border-2">
+                        <CardHeader>
+                          <CardTitle className="text-lg">{program.name}</CardTitle>
+                          <div className="text-2xl font-bold text-primary">¥{program.price}</div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <p className="text-sm text-muted-foreground">
+                            {program.description || '高质量的软件授权服务'}
+                          </p>
+                          
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button 
+                                className="w-full" 
+                                onClick={() => setSelectedProgram(program.id)}
+                                disabled={userProfile!.balance < program.price}
+                              >
+                                {userProfile!.balance < program.price ? '余额不足' : '立即购买'}
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>购买 {program.name}</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <Label>有效期（天）</Label>
+                                  <Select defaultValue="30">
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="选择有效期" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="7">7天 - ¥{program.price}</SelectItem>
+                                      <SelectItem value="30">30天 - ¥{program.price}</SelectItem>
+                                      <SelectItem value="90">90天 - ¥{(program.price * 2.5).toFixed(2)}</SelectItem>
+                                      <SelectItem value="365">365天 - ¥{(program.price * 10).toFixed(2)}</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                
+                                <div className="bg-muted p-4 rounded-lg">
+                                  <div className="flex justify-between">
+                                    <span>当前余额：</span>
+                                    <span>¥{userProfile?.balance?.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>购买金额：</span>
+                                    <span>¥{program.price}</span>
+                                  </div>
+                                  <div className="flex justify-between font-bold">
+                                    <span>购买后余额：</span>
+                                    <span>¥{(userProfile!.balance - program.price).toFixed(2)}</span>
+                                  </div>
+                                </div>
+
+                                <Button 
+                                  className="w-full" 
+                                  onClick={() => buyCardKeyMutation.mutate({ programId: program.id, duration: 30 })}
+                                  disabled={buyCardKeyMutation.isPending}
+                                >
+                                  {buyCardKeyMutation.isPending ? '购买中...' : '确认购买'}
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
-                </div>
-              </button>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-              <button className="w-full text-left p-3 rounded-lg border border-border/50 hover:bg-accent/50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-purple-500/10 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                    </svg>
+          {/* 充值余额 */}
+          <TabsContent value="recharge" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  充值余额
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[10, 50, 100, 500].map((amount) => (
+                    <Button
+                      key={amount}
+                      variant="outline"
+                      className="h-20 flex-col space-y-2"
+                      onClick={() => setRechargeAmount(amount.toString())}
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>¥{amount}</span>
+                    </Button>
+                  ))}
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="custom-amount">自定义金额</Label>
+                    <Input
+                      id="custom-amount"
+                      type="number"
+                      placeholder="请输入充值金额"
+                      value={rechargeAmount}
+                      onChange={(e) => setRechargeAmount(e.target.value)}
+                    />
                   </div>
-                  <div>
-                    <p className="font-medium text-foreground">添加代理</p>
-                    <p className="text-xs text-muted-foreground">创建代理账户</p>
+
+                  <Button 
+                    className="w-full" 
+                    size="lg"
+                    disabled={!rechargeAmount || parseFloat(rechargeAmount) <= 0}
+                  >
+                    充值 ¥{rechargeAmount || '0.00'}
+                  </Button>
+                </div>
+
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
+                  <h4 className="font-semibold mb-2">充值说明</h4>
+                  <ul className="text-sm space-y-1 text-muted-foreground">
+                    <li>• 支持微信、支付宝、银行卡支付</li>
+                    <li>• 充值金额实时到账，无手续费</li>
+                    <li>• 最低充值金额¥10，最高¥10000</li>
+                    <li>• 余额可用于购买所有程序卡密</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 我的卡密 */}
+          <TabsContent value="my-keys" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Key className="h-5 w-5" />
+                  我的卡密
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingKeys ? (
+                  <div className="text-center py-4">加载中...</div>
+                ) : myCardKeys?.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    您还没有任何卡密，去购买一个吧！
                   </div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-card/50 backdrop-blur-sm rounded-xl p-6 border border-border/50">
-            <h3 className="text-lg font-semibold text-foreground mb-4">系统状态</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-foreground">数据库连接</span>
-                </div>
-                <span className="text-xs text-green-500">正常</span>
-              </div>
-
-              <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-foreground">API服务</span>
-                </div>
-                <span className="text-xs text-green-500">正常</span>
-              </div>
-
-              <div className="flex items-center justify-between p-3 rounded-lg bg-green-500/10">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-foreground">支付系统</span>
-                </div>
-                <span className="text-xs text-green-500">正常</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-card/50 backdrop-blur-sm rounded-xl p-6 border border-border/50">
-            <h3 className="text-lg font-semibold text-foreground mb-4">最近活动</h3>
-            <div className="space-y-3 text-sm">
-              <div className="p-3 rounded-lg border border-border/50">
-                <p className="text-muted-foreground">暂无活动记录</p>
-              </div>
-            </div>
-          </div>
-        </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>程序名称</TableHead>
+                        <TableHead>卡密</TableHead>
+                        <TableHead>状态</TableHead>
+                        <TableHead>过期时间</TableHead>
+                        <TableHead>操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {myCardKeys?.map((cardKey) => (
+                        <TableRow key={cardKey.id}>
+                          <TableCell className="font-medium">
+                            {(cardKey as any).programs?.name}
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {cardKey.card_key}
+                          </TableCell>
+                          <TableCell>
+                            {getStatusBadge(cardKey.status)}
+                          </TableCell>
+                          <TableCell>
+                            {cardKey.expire_at ? new Date(cardKey.expire_at).toLocaleDateString() : '-'}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => copyCardKey(cardKey.card_key)}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => clearIPMutation.mutate(cardKey.id)}
+                                disabled={clearIPMutation.isPending}
+                              >
+                                <RefreshCw className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );
