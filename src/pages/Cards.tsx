@@ -516,6 +516,64 @@ const Cards = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button 
+              variant="secondary" 
+              className="flex items-center gap-2"
+              onClick={async () => {
+                if (programs.length === 0) {
+                  toast({
+                    title: "无可用程序",
+                    description: "请先创建程序后再生成测试卡密",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                
+                try {
+                  const { data, error } = await supabase.functions.invoke('create-test-card', {
+                    body: { 
+                      programId: programs[0].id,
+                      durationDays: 30,
+                      machineCount: 2
+                    }
+                  });
+
+                  if (error) {
+                    toast({
+                      title: "创建测试卡密失败",
+                      description: error.message,
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+
+                  if (data.error) {
+                    toast({
+                      title: "创建测试卡密失败",
+                      description: data.error,
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+
+                  toast({
+                    title: "测试卡密创建成功",
+                    description: data.message,
+                  });
+
+                  fetchData();
+                } catch (error) {
+                  toast({
+                    title: "创建测试卡密失败",
+                    description: "系统错误，请稍后重试",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              <Key className="w-4 h-4" />
+              生成测试卡密
+            </Button>
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
                 <Button className="flex items-center gap-2">

@@ -8,3 +8,6 @@ verify_jwt = true
 
 [functions.delete-program]
 verify_jwt = true
+
+[functions.create-test-card]
+verify_jwt = true
