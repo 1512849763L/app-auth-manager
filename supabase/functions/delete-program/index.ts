@@ -49,6 +49,7 @@ serve(async (req) => {
     console.log('Request body:', requestBody);
 
     if (!programId) {
+      console.error('Missing programId in request');
       return new Response(
         JSON.stringify({ error: '缺少程序ID' }), 
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -56,6 +57,51 @@ serve(async (req) => {
     }
 
     console.log('Deleting program:', programId);
+
+    // 验证用户身份 - 检查是否为管理员
+    if (authHeader) {
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        
+        if (authError || !user) {
+          console.error('Authentication failed:', authError);
+          return new Response(
+            JSON.stringify({ error: '身份验证失败' }), 
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // 检查用户是否为管理员
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError || !profile || profile.role !== 'admin') {
+          console.error('User is not admin:', { profileError, profile });
+          return new Response(
+            JSON.stringify({ error: '权限不足，只有管理员可以删除程序' }), 
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('User authenticated as admin:', user.id);
+      } catch (tokenError) {
+        console.error('Token validation error:', tokenError);
+        return new Response(
+          JSON.stringify({ error: '无效的身份令牌' }), 
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else {
+      console.error('No authorization header provided');
+      return new Response(
+        JSON.stringify({ error: '缺少身份验证信息' }), 
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // 检查程序是否存在
     const { data: programData, error: programError } = await supabase

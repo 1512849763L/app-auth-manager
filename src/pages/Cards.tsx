@@ -165,8 +165,76 @@ const Cards = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // 获取用户资料和角色
+      const { data: userProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !userProfile) {
+        toast({
+          title: "获取用户信息失败",
+          description: "请刷新页面重试",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const cardKey = await generateCardKey();
       const quantity = parseInt(formData.quantity);
+      const selectedProgram = programs.find(p => p.id === formData.program_id);
+      
+      if (!selectedProgram) {
+        toast({
+          title: "程序不存在",
+          description: "请选择有效的程序",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // 如果不是管理员，需要检查余额并扣费
+      if (userProfile.role !== 'admin') {
+        const totalCost = selectedProgram.price * quantity;
+        
+        if (userProfile.balance < totalCost) {
+          toast({
+            title: "余额不足",
+            description: `需要¥${totalCost.toFixed(2)}，当前余额¥${userProfile.balance.toFixed(2)}`,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // 更新用户余额
+        const { error: balanceError } = await supabase
+          .from('profiles')
+          .update({ balance: userProfile.balance - totalCost })
+          .eq('id', user.id);
+
+        if (balanceError) {
+          toast({
+            title: "余额扣减失败",
+            description: balanceError.message,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // 记录余额变动
+        await supabase
+          .from('balance_records')
+          .insert({
+            user_id: user.id,
+            amount: -totalCost,
+            type: 'consume',
+            description: `生成${selectedProgram.name}卡密 x${quantity}`,
+            balance_before: userProfile.balance,
+            balance_after: userProfile.balance - totalCost
+          });
+      }
+
       const cardsToInsert = [];
 
       for (let i = 0; i < quantity; i++) {
@@ -177,7 +245,7 @@ const Cards = () => {
           duration_days: parseInt(formData.duration_days),
           user_id: user.id,
           created_by: user.id,
-          max_machines: 1,
+          max_machines: selectedProgram.max_machines || 1,
         });
       }
 
@@ -194,9 +262,25 @@ const Cards = () => {
         return;
       }
 
+      // 如果不是管理员，创建订单记录
+      if (userProfile.role !== 'admin') {
+        for (let i = 0; i < quantity; i++) {
+          await supabase
+            .from('orders')
+            .insert({
+              user_id: user.id,
+              program_id: formData.program_id,
+              amount: selectedProgram.price,
+              cost_amount: selectedProgram.cost_price,
+              status: 'paid',
+              payment_method: 'balance'
+            });
+        }
+      }
+
       toast({
         title: "卡密创建成功",
-        description: `成功生成 ${quantity} 个卡密`,
+        description: `成功生成 ${quantity} 个卡密${userProfile.role !== 'admin' ? '，已扣除余额' : ''}`,
       });
 
       setFormData({
@@ -222,7 +306,75 @@ const Cards = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // 获取用户资料和角色
+      const { data: userProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !userProfile) {
+        toast({
+          title: "获取用户信息失败",
+          description: "请刷新页面重试",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const quantity = parseInt(batchData.quantity);
+      const selectedProgram = programs.find(p => p.id === batchData.program_id);
+      
+      if (!selectedProgram) {
+        toast({
+          title: "程序不存在",
+          description: "请选择有效的程序",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // 如果不是管理员，需要检查余额并扣费
+      if (userProfile.role !== 'admin') {
+        const totalCost = selectedProgram.price * quantity;
+        
+        if (userProfile.balance < totalCost) {
+          toast({
+            title: "余额不足",
+            description: `需要¥${totalCost.toFixed(2)}，当前余额¥${userProfile.balance.toFixed(2)}`,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // 更新用户余额
+        const { error: balanceError } = await supabase
+          .from('profiles')
+          .update({ balance: userProfile.balance - totalCost })
+          .eq('id', user.id);
+
+        if (balanceError) {
+          toast({
+            title: "余额扣减失败",
+            description: balanceError.message,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // 记录余额变动
+        await supabase
+          .from('balance_records')
+          .insert({
+            user_id: user.id,
+            amount: -totalCost,
+            type: 'consume',
+            description: `批量生成${selectedProgram.name}卡密 x${quantity}`,
+            balance_before: userProfile.balance,
+            balance_after: userProfile.balance - totalCost
+          });
+      }
+
       const cardsToInsert = [];
 
       for (let i = 0; i < quantity; i++) {
@@ -237,7 +389,7 @@ const Cards = () => {
           duration_days: parseInt(batchData.duration_days),
           user_id: user.id,
           created_by: user.id,
-          max_machines: 1,
+          max_machines: selectedProgram.max_machines || 1,
         });
       }
 
@@ -254,9 +406,25 @@ const Cards = () => {
         return;
       }
 
+      // 如果不是管理员，创建订单记录
+      if (userProfile.role !== 'admin') {
+        for (let i = 0; i < quantity; i++) {
+          await supabase
+            .from('orders')
+            .insert({
+              user_id: user.id,
+              program_id: batchData.program_id,
+              amount: selectedProgram.price,
+              cost_amount: selectedProgram.cost_price,
+              status: 'paid',
+              payment_method: 'balance'
+            });
+        }
+      }
+
       toast({
         title: "批量生成成功",
-        description: `成功生成 ${quantity} 个卡密`,
+        description: `成功生成 ${quantity} 个卡密${userProfile.role !== 'admin' ? '，已扣除余额' : ''}`,
       });
 
       setBatchData({
