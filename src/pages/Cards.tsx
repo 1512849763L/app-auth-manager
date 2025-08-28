@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Key, Search, Download, Upload, Ban, CheckCircle, Clock, XCircle, Copy, Edit, Trash2 } from "lucide-react";
+import { Plus, Key, Search, Download, Upload, Ban, CheckCircle, Clock, XCircle, Copy, Edit, Trash2, RefreshCw } from "lucide-react";
 import { Layout } from "../components/Layout";
 
 interface CardKey {
@@ -726,141 +726,240 @@ const Cards = () => {
           </div>
         </div>
 
-        {/* 卡密列表 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCards.map((card) => (
-            <Card key={card.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-mono">
-                    {card.card_key}
-                  </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => copyToClipboard(card.card_key)}
-                  >
-                    <Copy className="w-3 h-3" />
-                  </Button>
-                </div>
-                <CardDescription>
-                  程序: {card.programs.name}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">状态</span>
-                  {getStatusBadge(card.status)}
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">有效期</span>
-                  <span className="text-sm font-medium">
-                    {card.duration_days === -1 ? "永久" : `${card.duration_days}天`}
-                  </span>
-                </div>
-
-                {(card.max_machines || card.used_machines) && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">机器限制</span>
-                    <span className="text-sm font-medium">
-                      {card.max_machines ? (
-                        `${card.used_machines || 0}/${card.max_machines}`
-                      ) : (
-                        "无限制"
-                      )}
-                    </span>
+        {/* 卡密列表 - 使用表格和折叠形式 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Key className="h-5 w-5" />
+                卡密列表 ({filteredCards.length})
+              </span>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">
+                  总计: {cardKeys.length}
+                </Badge>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {filteredCards.length > 0 ? (
+              <div className="space-y-2">
+                {filteredCards.map((card) => (
+                  <div key={card.id} className="border rounded-lg overflow-hidden card-item">
+                    <div className="p-4 bg-muted/30 flex items-center justify-between cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <div className="font-mono text-sm font-medium">{card.card_key}</div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {card.programs.name} · 
+                            {card.duration_days === -1 ? "永久" : `${card.duration_days}天`}
+                            {card.max_machines && ` · 机器限制: ${card.used_machines || 0}/${card.max_machines}`}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        {getStatusBadge(card.status)}
+                        
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyToClipboard(card.card_key);
+                            }}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </Button>
+                          
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditDialog(card);
+                            }}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const cardItem = (e.target as HTMLElement).closest('.card-item') as HTMLElement;
+                              const details = cardItem?.querySelector('.card-details') as HTMLElement;
+                              if (details) {
+                                const isOpen = details.classList.contains('block');
+                                details.classList.toggle('hidden', isOpen);
+                                details.classList.toggle('block', !isOpen);
+                                const icon = cardItem?.querySelector('.expand-icon') as HTMLElement;
+                                if (icon) {
+                                  icon.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+                                }
+                              }
+                            }}
+                            className="h-8 w-8 p-0"
+                          >
+                            <svg 
+                              className="expand-icon w-4 h-4 transition-transform duration-200" 
+                              fill="none" 
+                              viewBox="0 0 24 24" 
+                              stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="card-details hidden bg-background border-t">
+                      <div className="p-4 space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                          <div className="space-y-1">
+                            <div className="text-muted-foreground">创建时间</div>
+                            <div className="font-medium">
+                              {new Date(card.created_at).toLocaleString('zh-CN', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: false
+                              })}
+                            </div>
+                          </div>
+                          
+                          {card.expire_at && (
+                            <div className="space-y-1">
+                              <div className="text-muted-foreground">过期时间</div>
+                              <div className="font-medium">
+                                {new Date(card.expire_at).toLocaleString('zh-CN', {
+                                  year: 'numeric',
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                  hour12: false
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {card.used_at && (
+                            <div className="space-y-1">
+                              <div className="text-muted-foreground">使用时间</div>
+                              <div className="font-medium">
+                                {new Date(card.used_at).toLocaleString('zh-CN', {
+                                  year: 'numeric',
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                  hour12: false
+                                })}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {card.max_machines && (
+                            <div className="space-y-1">
+                              <div className="text-muted-foreground">机器使用情况</div>
+                              <div className="font-medium">
+                                已绑定 {card.used_machines || 0} / {card.max_machines} 台机器
+                              </div>
+                            </div>
+                          )}
+                          
+                          {card.bound_machine_codes && card.bound_machine_codes.length > 0 && (
+                            <div className="space-y-1 md:col-span-2">
+                              <div className="text-muted-foreground">绑定的机器码</div>
+                              <div className="space-y-1">
+                                {card.bound_machine_codes.map((code, index) => (
+                                  <div key={index} className="font-mono text-xs bg-muted px-2 py-1 rounded">
+                                    {code}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex justify-end gap-2 pt-2 border-t">
+                          {card.status === 'unused' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateCardStatus(card.id, 'banned')}
+                            >
+                              <Ban className="w-3 h-3 mr-1" />
+                              封禁
+                            </Button>
+                          )}
+                          
+                          {card.status === 'banned' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => updateCardStatus(card.id, 'unused')}
+                            >
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              解封
+                            </Button>
+                          )}
+                          
+                          {card.status === 'used' && card.bound_machine_codes && card.bound_machine_codes.length > 0 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // 这里可以添加清除机器绑定的功能
+                                toast({
+                                  title: "功能提示",
+                                  description: "清除机器绑定功能开发中",
+                                });
+                              }}
+                              title="清除所有机器绑定"
+                            >
+                              <RefreshCw className="w-3 h-3 mr-1" />
+                              清除绑定
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                )}
-
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">创建时间</span>
-                  <span className="text-sm">
-                    {new Date(card.created_at).toLocaleString('zh-CN', {
-                      year: 'numeric',
-                      month: '2-digit',
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      second: '2-digit',
-                      hour12: false
-                    })}
-                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Key className="w-8 h-8 text-muted-foreground" />
                 </div>
-
-                {card.used_at && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">使用时间</span>
-                    <span className="text-sm">
-                      {new Date(card.used_at).toLocaleString('zh-CN', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                        hour12: false
-                      })}
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex justify-end space-x-2 pt-2">
-                  {card.status === 'unused' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => updateCardStatus(card.id, 'banned')}
-                    >
-                      <Ban className="w-3 h-3 mr-1" />
-                      封禁
-                    </Button>
-                  )}
-                  
-                  {card.status === 'banned' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => updateCardStatus(card.id, 'unused')}
-                    >
-                      <CheckCircle className="w-3 h-3 mr-1" />
-                      解封
-                    </Button>
-                  )}
-
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => openEditDialog(card)}
-                  >
-                    <Edit className="w-3 h-3 mr-1" />
-                    编辑
+                <h3 className="text-lg font-semibold text-foreground mb-2">
+                  {cardKeys.length === 0 ? "暂无卡密" : "未找到匹配的卡密"}
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  {cardKeys.length === 0 ? "开始生成您的第一个卡密" : "尝试调整筛选条件"}
+                </p>
+                {cardKeys.length === 0 && (
+                  <Button onClick={() => setShowCreateDialog(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    生成卡密
                   </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {filteredCards.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-              <Key className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">
-              {cardKeys.length === 0 ? "暂无卡密" : "未找到匹配的卡密"}
-            </h3>
-            <p className="text-muted-foreground mb-4">
-              {cardKeys.length === 0 ? "开始生成您的第一个卡密" : "尝试调整筛选条件"}
-            </p>
-            {cardKeys.length === 0 && (
-              <Button onClick={() => setShowCreateDialog(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                生成卡密
-              </Button>
+                )}
+              </div>
             )}
-          </div>
-        )}
+          </CardContent>
+        </Card>
       </div>
     </Layout>
   );
