@@ -16,7 +16,6 @@ type UserRole = 'admin' | 'agent' | 'user';
 
 interface UserProfile {
   id: string;
-  id: string;
   username: string;
   role: UserRole;
   balance: number;
