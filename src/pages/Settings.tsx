@@ -16,9 +16,6 @@ import {
   CreditCard, 
   Shield, 
   Save, 
-  TestTube,
-  ExternalLink,
-  Zap,
   Plus,
   Search,
   Eye,
@@ -41,8 +38,6 @@ interface SystemSetting {
 const Settings = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [isWebhookLoading, setIsWebhookLoading] = useState(false);
   const [rechargeDialogOpen, setRechargeDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -135,51 +130,6 @@ const Settings = () => {
     card.amount.toString().includes(searchTerm)
   ) || [];
 
-  const handleZapierTrigger = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!webhookUrl) {
-      toast({
-        title: "错误",
-        description: "请输入Zapier webhook URL",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsWebhookLoading(true);
-
-    try {
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        mode: "no-cors",
-        body: JSON.stringify({
-          timestamp: new Date().toISOString(),
-          triggered_from: window.location.origin,
-          event_type: "manual_trigger",
-          system: "card_authorization_system",
-        }),
-      });
-
-      toast({
-        title: "请求已发送",
-        description: "请检查您的Zap历史记录以确认触发成功",
-      });
-    } catch (error) {
-      console.error("Error triggering webhook:", error);
-      toast({
-        title: "错误",
-        description: "触发Zapier webhook失败，请检查URL并重试",
-        variant: "destructive",
-      });
-    } finally {
-      setIsWebhookLoading(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <Layout>
@@ -209,10 +159,9 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="general" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="general">基本设置</TabsTrigger>
             <TabsTrigger value="recharge">充值卡密</TabsTrigger>
-            <TabsTrigger value="integration">集成配置</TabsTrigger>
             <TabsTrigger value="security">安全设置</TabsTrigger>
           </TabsList>
 
@@ -358,87 +307,6 @@ const Settings = () => {
                     )}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* 集成配置 */}
-          <TabsContent value="integration" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5" />
-                  Zapier 集成
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <p className="text-muted-foreground">
-                  配置 Zapier Webhook 以自动化您的工作流程。当系统中发生特定事件时，可以触发您的 Zap。
-                </p>
-
-                <form onSubmit={handleZapierTrigger} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="webhook-url">Zapier Webhook URL</Label>
-                    <Input
-                      id="webhook-url"
-                      type="url"
-                      value={webhookUrl}
-                      onChange={(e) => setWebhookUrl(e.target.value)}
-                      placeholder="https://hooks.zapier.com/hooks/catch/..."
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <Button 
-                      type="submit" 
-                      disabled={isWebhookLoading || !webhookUrl}
-                      className="gap-2"
-                    >
-                      {isWebhookLoading ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground"></div>
-                      ) : (
-                        <TestTube className="h-4 w-4" />
-                      )}
-                      测试 Webhook
-                    </Button>
-                    <Button asChild variant="outline" className="gap-2">
-                      <a 
-                        href="https://zapier.com/apps/webhook/help" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        Zapier 文档
-                      </a>
-                    </Button>
-                  </div>
-                </form>
-
-                <div className="p-4 bg-muted/50 rounded-lg">
-                  <h4 className="font-medium mb-2">设置步骤</h4>
-                  <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                    <li>登录您的 Zapier 账户</li>
-                    <li>创建一个新的 Zap</li>
-                    <li>选择 "Webhooks by Zapier" 作为触发器</li>
-                    <li>选择 "Catch Hook" 触发事件</li>
-                    <li>复制提供的 Webhook URL 并粘贴到上方</li>
-                    <li>点击测试按钮验证连接</li>
-                  </ol>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <h4 className="font-medium mb-2">可触发的事件</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <Badge variant="outline">新用户注册</Badge>
-                    <Badge variant="outline">卡密生成</Badge>
-                    <Badge variant="outline">卡密使用</Badge>
-                    <Badge variant="outline">订单创建</Badge>
-                    <Badge variant="outline">支付完成</Badge>
-                    <Badge variant="outline">系统警报</Badge>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
