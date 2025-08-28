@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Key, Search, Download, Upload, Ban, CheckCircle, Clock, XCircle, Copy, Edit, Trash2, RefreshCw } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Layout } from "../components/Layout";
 
 interface CardKey {
@@ -43,6 +44,8 @@ const Cards = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [programFilter, setProgramFilter] = useState("all");
   const [userRole, setUserRole] = useState<string>("");
+  const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());
+  const [showBatchDelete, setShowBatchDelete] = useState(false);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -407,6 +410,83 @@ const Cards = () => {
     } catch (error) {
       toast({
         title: "清除绑定失败",
+        description: "系统错误，请稍后重试",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleCardSelection = (cardId: string) => {
+    const newSelected = new Set(selectedCards);
+    if (newSelected.has(cardId)) {
+      newSelected.delete(cardId);
+    } else {
+      newSelected.add(cardId);
+    }
+    setSelectedCards(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedCards.size === filteredCards.length) {
+      setSelectedCards(new Set());
+    } else {
+      setSelectedCards(new Set(filteredCards.map(card => card.id)));
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedCards.size === 0) return;
+
+    const confirmMessage = `确定要删除选中的 ${selectedCards.size} 个卡密吗？\n\n⚠️ 注意：\n• 未使用的卡密将自动退还余额\n• 此操作不可撤销`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      const deletePromises = Array.from(selectedCards).map(cardId =>
+        supabase.functions.invoke('delete-card-key', {
+          body: { cardId }
+        })
+      );
+
+      const results = await Promise.all(deletePromises);
+      
+      let successCount = 0;
+      let totalRefunded = 0;
+      let errorCount = 0;
+
+      results.forEach((result, index) => {
+        if (result.error || result.data?.error) {
+          errorCount++;
+        } else {
+          successCount++;
+          if (result.data?.refunded && result.data?.refundAmount > 0) {
+            totalRefunded += result.data.refundAmount;
+          }
+        }
+      });
+
+      let message = `成功删除 ${successCount} 个卡密`;
+      if (totalRefunded > 0) {
+        message += `，共退还 ¥${totalRefunded.toFixed(2)}`;
+      }
+      if (errorCount > 0) {
+        message += `，${errorCount} 个删除失败`;
+      }
+
+      toast({
+        title: errorCount === 0 ? "批量删除成功" : "批量删除部分成功",
+        description: message,
+        variant: errorCount === 0 ? "default" : "destructive",
+      });
+
+      setSelectedCards(new Set());
+      setShowBatchDelete(false);
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "批量删除失败",
         description: "系统错误，请稍后重试",
         variant: "destructive",
       });
@@ -980,11 +1060,34 @@ const Cards = () => {
                 卡密列表 ({filteredCards.length})
               </span>
               <div className="flex items-center gap-2">
+                {selectedCards.size > 0 && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleBatchDelete}
+                    className="flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    批量删除 ({selectedCards.size})
+                  </Button>
+                )}
                 <Badge variant="outline" className="text-xs">
                   总计: {cardKeys.length}
                 </Badge>
               </div>
             </CardTitle>
+            {filteredCards.length > 0 && (
+              <div className="flex items-center gap-2 pt-2">
+                <Checkbox
+                  id="select-all"
+                  checked={selectedCards.size === filteredCards.length && filteredCards.length > 0}
+                  onCheckedChange={toggleSelectAll}
+                />
+                <Label htmlFor="select-all" className="text-sm text-muted-foreground">
+                  全选 ({selectedCards.size}/{filteredCards.length})
+                </Label>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             {filteredCards.length > 0 ? (
@@ -993,6 +1096,11 @@ const Cards = () => {
                   <div key={card.id} className="border rounded-lg overflow-hidden card-item">
                     <div className="p-4 bg-muted/30 flex items-center justify-between cursor-pointer hover:bg-muted/50 transition-colors">
                       <div className="flex items-center gap-4">
+                        <Checkbox
+                          checked={selectedCards.has(card.id)}
+                          onCheckedChange={() => toggleCardSelection(card.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
                         <div className="flex-1">
                           <div className="font-mono text-sm font-medium">{card.card_key}</div>
                           <div className="text-xs text-muted-foreground mt-1">
