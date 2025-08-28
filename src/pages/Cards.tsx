@@ -150,6 +150,7 @@ const Cards = () => {
           card_key: key,
           program_id: formData.program_id,
           duration_days: parseInt(formData.duration_days),
+          user_id: user.id,
           created_by: user.id,
         });
       }
@@ -208,6 +209,7 @@ const Cards = () => {
           card_key: cardKey,
           program_id: batchData.program_id,
           duration_days: parseInt(batchData.duration_days),
+          user_id: user.id,
           created_by: user.id,
         });
       }
