@@ -32,7 +32,7 @@ const allMenuItems = [
   { title: "程序管理", url: "/programs", icon: Package, roles: ["admin"] },
   { title: "卡密管理", url: "/cards", icon: Key, roles: ["admin", "user"] },
   { title: "用户管理", url: "/users", icon: Users, roles: ["admin"] },
-  { title: "财务管理", url: "/finance", icon: CreditCard, roles: ["admin"] },
+  { title: "财务管理", url: "/finance", icon: CreditCard, roles: ["admin", "user"] },
   { title: "开发文档", url: "/docs", icon: BookOpen, roles: ["admin", "user"] },
   { title: "系统设置", url: "/settings", icon: Settings, roles: ["admin"] },
 ];
