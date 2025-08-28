@@ -33,10 +33,37 @@ const Programs = () => {
 
   const fetchPrograms = async () => {
     try {
-      const { data, error } = await supabase
-        .from('programs')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "未登录",
+          description: "请先登录后再访问",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get user role to determine which function to use
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      let data, error;
+
+      // Use secure functions based on user permissions
+      if (profile?.role === 'admin' || profile?.role === 'agent') {
+        // Admins and agents can see programs with API keys
+        const result = await supabase.rpc('get_programs_with_api_keys');
+        data = result.data;
+        error = result.error;
+      } else {
+        // Regular users can only see public program info (no API keys)
+        const result = await supabase.rpc('get_public_programs');
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) {
         toast({
@@ -271,43 +298,49 @@ const Programs = () => {
                     <p className="text-muted-foreground">售价</p>
                     <p className="font-medium text-green-600">¥{program.price}</p>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground">成本价</p>
-                    <p className="font-medium text-orange-600">¥{program.cost_price}</p>
-                  </div>
+                  {/* Only show cost price if program has cost_price (for admins/agents) */}
+                  {program.cost_price !== undefined && (
+                    <div>
+                      <p className="text-muted-foreground">成本价</p>
+                      <p className="font-medium text-orange-600">¥{program.cost_price}</p>
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm">API密钥</Label>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleApiKeyVisibility(program.id)}
-                      >
-                        {showApiKey[program.id] ? (
-                          <EyeOff className="w-3 h-3" />
-                        ) : (
-                          <Eye className="w-3 h-3" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => copyToClipboard(program.api_key)}
-                      >
-                        <Copy className="w-3 h-3" />
-                      </Button>
+                {/* Only show API key section if program has api_key (for admins/agents) */}
+                {program.api_key && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">API密钥</Label>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleApiKeyVisibility(program.id)}
+                        >
+                          {showApiKey[program.id] ? (
+                            <EyeOff className="w-3 h-3" />
+                          ) : (
+                            <Eye className="w-3 h-3" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(program.api_key)}
+                        >
+                          <Copy className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-muted rounded text-xs font-mono">
+                      {showApiKey[program.id] 
+                        ? program.api_key 
+                        : '•'.repeat(program.api_key.length)
+                      }
                     </div>
                   </div>
-                  <div className="p-2 bg-muted rounded text-xs font-mono">
-                    {showApiKey[program.id] 
-                      ? program.api_key 
-                      : '•'.repeat(program.api_key.length)
-                    }
-                  </div>
-                </div>
+                )}
 
                 <div className="flex justify-end space-x-2">
                   <Button variant="outline" size="sm">
