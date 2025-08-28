@@ -87,7 +87,12 @@ export function Layout({ children }: LayoutProps) {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gradient-to-br from-primary/5 via-background to-accent/5">
-        <AppSidebar userProfile={profile} />
+        <AppSidebar 
+          userProfile={profile} 
+          onProfileUpdate={(updates) => {
+            setProfile(prev => prev ? { ...prev, ...updates } : null);
+          }}
+        />
         
         <div className="flex-1 flex flex-col">
           {/* 顶部导航栏 */}

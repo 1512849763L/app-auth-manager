@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FileUpload } from "@/components/ui/file-upload";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -194,6 +195,58 @@ const Settings = () => {
                     placeholder="在此输入系统公告内容..."
                     className="min-h-[100px]"
                   />
+                </div>
+
+                <div className="space-y-4">
+                  <Label>网站图标设置</Label>
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-sm text-muted-foreground">当前图标</Label>
+                      {getSettingValue('site_favicon_url') ? (
+                        <div className="flex items-center gap-3 mt-2">
+                          <img 
+                            src={getSettingValue('site_favicon_url')} 
+                            alt="网站图标" 
+                            className="w-8 h-8 rounded"
+                            onError={(e) => {
+                              e.currentTarget.src = '/placeholder.svg';
+                            }}
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateSetting('site_favicon_url', '')}
+                          >
+                            移除图标
+                          </Button>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground mt-2">未设置网站图标</p>
+                      )}
+                    </div>
+                    
+                    <FileUpload
+                      onUpload={(url) => {
+                        updateSetting('site_favicon_url', url);
+                        // 更新页面图标
+                        const favicon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
+                        if (favicon) {
+                          favicon.href = url;
+                        } else {
+                          const newFavicon = document.createElement('link');
+                          newFavicon.rel = 'icon';
+                          newFavicon.href = url;
+                          document.head.appendChild(newFavicon);
+                        }
+                      }}
+                      currentUrl={getSettingValue('site_favicon_url')}
+                      bucket="system-assets"
+                      folder="icons"
+                      accept="image/*"
+                      maxSize={2 * 1024 * 1024} // 2MB
+                      preview={false}
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">

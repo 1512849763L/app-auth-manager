@@ -26,6 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { AvatarUpload } from "@/components/AvatarUpload";
 
 const allMenuItems = [
   { title: "仪表盘", url: "/", icon: Home, roles: ["admin", "user"] },
@@ -39,9 +40,10 @@ const allMenuItems = [
 
 interface AppSidebarProps {
   userProfile?: any;
+  onProfileUpdate?: (updates: any) => void;
 }
 
-export function AppSidebar({ userProfile }: AppSidebarProps) {
+export function AppSidebar({ userProfile, onProfileUpdate }: AppSidebarProps) {
   const { state } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
@@ -108,9 +110,17 @@ export function AppSidebar({ userProfile }: AppSidebarProps) {
         {userProfile && (
           <div className="p-4 border-b border-border/50">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                <Users className="w-4 h-4 text-primary" />
-              </div>
+              <AvatarUpload
+                currentUrl={userProfile.avatar_url}
+                userId={userProfile.id}
+                username={userProfile.username}
+                onAvatarUpdate={(url) => {
+                  if (onProfileUpdate) {
+                    onProfileUpdate({ avatar_url: url });
+                  }
+                }}
+                size="sm"
+              />
               {!collapsed && (
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">

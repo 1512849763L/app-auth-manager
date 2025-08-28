@@ -181,20 +181,26 @@ const Programs = () => {
     }
 
     try {
+      console.log('Attempting to delete program:', programId);
+      
       const { data, error } = await supabase.functions.invoke('delete-program', {
         body: { programId }
       });
 
+      console.log('Delete response:', { data, error });
+
       if (error) {
+        console.error('Function invocation error:', error);
         toast({
           title: "删除失败",
-          description: error.message,
+          description: error.message || "调用删除函数失败",
           variant: "destructive",
         });
         return;
       }
 
-      if (data.error) {
+      if (data && data.error) {
+        console.error('Function returned error:', data);
         toast({
           title: "删除失败",
           description: data.error,
@@ -209,10 +215,11 @@ const Programs = () => {
       });
 
       fetchPrograms();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Catch block error:', error);
       toast({
         title: "删除失败",
-        description: "系统错误，请稍后重试",
+        description: error.message || "系统错误，请稍后重试",
         variant: "destructive",
       });
     }
@@ -433,11 +440,29 @@ const Programs = () => {
                 )}
 
                 <div className="flex justify-end space-x-2">
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      toast({
+                        title: "编辑功能",
+                        description: "编辑功能正在开发中",
+                      });
+                    }}
+                  >
                     <Edit className="w-3 h-3 mr-1" />
                     编辑
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      toast({
+                        title: "设置功能",
+                        description: "设置功能正在开发中",
+                      });
+                    }}
+                  >
                     <Settings className="w-3 h-3 mr-1" />
                     设置
                   </Button>
