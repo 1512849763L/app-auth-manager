@@ -148,7 +148,7 @@ const Index = () => {
         .insert({
           user_id: userProfile!.id,
           amount: -program.price,
-          type: 'expense',
+          type: 'consume',
           description: `购买${program.name}卡密`,
           balance_before: userProfile!.balance,
           balance_after: userProfile!.balance - program.price
