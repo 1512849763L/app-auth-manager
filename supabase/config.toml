@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.check-expiring-cards]
 verify_jwt = false
+
+[functions.send-verification]
+verify_jwt = false
+
+[functions.verify-email]
+verify_jwt = false

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Shield, User } from "lucide-react";
+import { Eye, EyeOff, Shield, User, Mail, Send, CheckCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
@@ -30,6 +30,15 @@ const Auth = () => {
     email: "",
     password: "",
     confirmPassword: "",
+    verificationCode: "",
+  });
+
+  // 邮箱验证状态
+  const [emailVerification, setEmailVerification] = useState({
+    codeSent: false,
+    verifying: false,
+    verified: false,
+    countdown: 0,
   });
 
   useEffect(() => {
@@ -57,6 +66,20 @@ const Auth = () => {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  // 倒计时效果
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (emailVerification.countdown > 0) {
+      interval = setInterval(() => {
+        setEmailVerification(prev => ({
+          ...prev,
+          countdown: prev.countdown - 1
+        }));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [emailVerification.countdown]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,9 +117,137 @@ const Auth = () => {
     }
   };
 
+  const sendVerificationCode = async () => {
+    if (!registerData.email) {
+      toast({
+        title: "发送失败",
+        description: "请先输入邮箱地址",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setEmailVerification(prev => ({ ...prev, verifying: true }));
+
+    try {
+      const { data, error } = await supabase.functions.invoke('send-verification', {
+        body: {
+          email: registerData.email,
+          username: registerData.username || '用户'
+        }
+      });
+
+      if (error) {
+        toast({
+          title: "发送失败",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.error) {
+        toast({
+          title: "发送失败",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "验证码已发送",
+        description: "请查看您的邮箱，验证码10分钟内有效",
+      });
+
+      setEmailVerification(prev => ({
+        ...prev,
+        codeSent: true,
+        countdown: 60, // 60秒后可重新发送
+      }));
+
+    } catch (error) {
+      toast({
+        title: "发送失败",
+        description: "系统错误，请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setEmailVerification(prev => ({ ...prev, verifying: false }));
+    }
+  };
+
+  const verifyEmailCode = async () => {
+    if (!registerData.verificationCode) {
+      toast({
+        title: "验证失败",
+        description: "请输入验证码",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setEmailVerification(prev => ({ ...prev, verifying: true }));
+
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-email', {
+        body: {
+          email: registerData.email,
+          verificationCode: registerData.verificationCode
+        }
+      });
+
+      if (error) {
+        toast({
+          title: "验证失败",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.error) {
+        toast({
+          title: "验证失败",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "邮箱验证成功",
+        description: "现在可以完成注册",
+      });
+
+      setEmailVerification(prev => ({
+        ...prev,
+        verified: true,
+      }));
+
+    } catch (error) {
+      toast({
+        title: "验证失败",
+        description: "系统错误，请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setEmailVerification(prev => ({ ...prev, verifying: false }));
+    }
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!emailVerification.verified) {
+      toast({
+        title: "注册失败",
+        description: "请先验证邮箱地址",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (registerData.password !== registerData.confirmPassword) {
       toast({
         title: "注册失败",
@@ -153,6 +304,13 @@ const Auth = () => {
         email: "",
         password: "",
         confirmPassword: "",
+        verificationCode: "",
+      });
+      setEmailVerification({
+        codeSent: false,
+        verifying: false,
+        verified: false,
+        countdown: 0,
       });
     } catch (error) {
       toast({
@@ -266,16 +424,80 @@ const Auth = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="register-email">邮箱地址</Label>
-                    <Input
-                      id="register-email"
-                      type="email"
-                      placeholder="请输入邮箱地址"
-                      value={registerData.email}
-                      onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
-                      required
-                      className="h-11"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="register-email"
+                        type="email"
+                        placeholder="请输入邮箱地址"
+                        value={registerData.email}
+                        onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                        required
+                        className="h-11 flex-1"
+                        disabled={emailVerification.verified}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={sendVerificationCode}
+                        disabled={
+                          !registerData.email || 
+                          emailVerification.verifying || 
+                          emailVerification.countdown > 0 ||
+                          emailVerification.verified
+                        }
+                        className="h-11 shrink-0"
+                      >
+                        {emailVerification.verifying ? (
+                          "发送中..."
+                        ) : emailVerification.countdown > 0 ? (
+                          `${emailVerification.countdown}秒`
+                        ) : emailVerification.verified ? (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4 mr-1" />
+                            发送验证码
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
+
+                  {emailVerification.codeSent && !emailVerification.verified && (
+                    <div className="space-y-2">
+                      <Label htmlFor="verification-code">邮箱验证码</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="verification-code"
+                          type="text"
+                          placeholder="请输入6位验证码"
+                          value={registerData.verificationCode}
+                          onChange={(e) => setRegisterData({ ...registerData, verificationCode: e.target.value })}
+                          maxLength={6}
+                          className="h-11 flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="default"
+                          onClick={verifyEmailCode}
+                          disabled={!registerData.verificationCode || emailVerification.verifying}
+                          className="h-11 shrink-0"
+                        >
+                          {emailVerification.verifying ? "验证中..." : "验证"}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        验证码已发送到您的邮箱，请查收（10分钟内有效）
+                      </p>
+                    </div>
+                  )}
+
+                  {emailVerification.verified && (
+                    <div className="flex items-center gap-2 text-green-600 text-sm">
+                      <CheckCircle className="w-4 h-4" />
+                      邮箱验证成功
+                    </div>
+                  )}
                   
                   <div className="space-y-2">
                     <Label htmlFor="register-password">密码</Label>
@@ -322,7 +544,7 @@ const Auth = () => {
                   <Button
                     type="submit"
                     className="w-full h-11 text-base font-medium"
-                    disabled={isLoading}
+                    disabled={isLoading || !emailVerification.verified}
                   >
                     {isLoading ? "注册中..." : "创建账户"}
                   </Button>
