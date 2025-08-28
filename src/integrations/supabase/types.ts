@@ -101,42 +101,51 @@ export type Database = {
       }
       card_keys: {
         Row: {
+          bound_machine_codes: string[] | null
           card_key: string
           created_at: string
           created_by: string
           duration_days: number | null
           expire_at: string | null
           id: string
+          max_machines: number | null
           program_id: string
           status: string
           updated_at: string
           used_at: string | null
+          used_machines: number | null
           user_id: string | null
         }
         Insert: {
+          bound_machine_codes?: string[] | null
           card_key: string
           created_at?: string
           created_by: string
           duration_days?: number | null
           expire_at?: string | null
           id?: string
+          max_machines?: number | null
           program_id: string
           status?: string
           updated_at?: string
           used_at?: string | null
+          used_machines?: number | null
           user_id?: string | null
         }
         Update: {
+          bound_machine_codes?: string[] | null
           card_key?: string
           created_at?: string
           created_by?: string
           duration_days?: number | null
           expire_at?: string | null
           id?: string
+          max_machines?: number | null
           program_id?: string
           status?: string
           updated_at?: string
           used_at?: string | null
+          used_machines?: number | null
           user_id?: string | null
         }
         Relationships: [
@@ -241,6 +250,8 @@ export type Database = {
           created_by: string
           description: string | null
           id: string
+          machine_limit_note: string | null
+          max_machines: number | null
           name: string
           price: number
           status: string
@@ -254,6 +265,8 @@ export type Database = {
           created_by: string
           description?: string | null
           id?: string
+          machine_limit_note?: string | null
+          max_machines?: number | null
           name: string
           price?: number
           status?: string
@@ -267,6 +280,8 @@ export type Database = {
           created_by?: string
           description?: string | null
           id?: string
+          machine_limit_note?: string | null
+          max_machines?: number | null
           name?: string
           price?: number
           status?: string
@@ -349,6 +364,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bind_machine_code: {
+        Args: {
+          p_card_key: string
+          p_machine_code: string
+          p_program_id: string
+        }
+        Returns: Json
+      }
       generate_card_key: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -392,6 +415,14 @@ export type Database = {
       }
       use_recharge_card: {
         Args: { card_code: string }
+        Returns: Json
+      }
+      verify_card_key_with_machine: {
+        Args: {
+          p_card_key: string
+          p_machine_code: string
+          p_program_id: string
+        }
         Returns: Json
       }
     }
