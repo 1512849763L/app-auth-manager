@@ -33,6 +33,8 @@ const Cards = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showBatchDialog, setShowBatchDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingCard, setEditingCard] = useState<CardKey | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [programFilter, setProgramFilter] = useState("all");
@@ -42,6 +44,12 @@ const Cards = () => {
     program_id: "",
     duration_days: "30",
     quantity: "1",
+  });
+
+  const [editFormData, setEditFormData] = useState({
+    program_id: "",
+    duration_days: "",
+    status: "",
   });
 
   const [batchData, setBatchData] = useState({
@@ -264,6 +272,72 @@ const Cards = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleEditCard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!editingCard) return;
+
+    try {
+      const updateData: any = {};
+      
+      if (editFormData.program_id) {
+        updateData.program_id = editFormData.program_id;
+      }
+      
+      if (editFormData.duration_days) {
+        updateData.duration_days = parseInt(editFormData.duration_days);
+      }
+      
+      if (editFormData.status) {
+        updateData.status = editFormData.status;
+      }
+
+      const { error } = await supabase
+        .from('card_keys')
+        .update(updateData)
+        .eq('id', editingCard.id);
+
+      if (error) {
+        toast({
+          title: "编辑失败",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "编辑成功",
+        description: "卡密信息已更新",
+      });
+
+      setShowEditDialog(false);
+      setEditingCard(null);
+      setEditFormData({
+        program_id: "",
+        duration_days: "",
+        status: "",
+      });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "编辑失败",
+        description: "系统错误，请稍后重试",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openEditDialog = (card: CardKey) => {
+    setEditingCard(card);
+    setEditFormData({
+      program_id: card.program_id,
+      duration_days: card.duration_days.toString(),
+      status: card.status,
+    });
+    setShowEditDialog(true);
   };
 
   const copyToClipboard = async (text: string) => {
@@ -504,6 +578,96 @@ const Cards = () => {
                 </form>
               </DialogContent>
             </Dialog>
+
+            {/* 编辑卡密对话框 */}
+            <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>编辑卡密</DialogTitle>
+                  <DialogDescription>
+                    修改卡密的基本信息
+                  </DialogDescription>
+                </DialogHeader>
+                {editingCard && (
+                  <form onSubmit={handleEditCard} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>卡密</Label>
+                      <Input 
+                        value={editingCard.card_key} 
+                        disabled 
+                        className="font-mono bg-muted"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_program">选择程序</Label>
+                      <Select 
+                        value={editFormData.program_id} 
+                        onValueChange={(value) => setEditFormData({ ...editFormData, program_id: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="请选择程序" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {programs.map((program) => (
+                            <SelectItem key={program.id} value={program.id}>
+                              {program.name} (¥{program.price})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_duration">有效期 (天)</Label>
+                      <Select 
+                        value={editFormData.duration_days} 
+                        onValueChange={(value) => setEditFormData({ ...editFormData, duration_days: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1天</SelectItem>
+                          <SelectItem value="7">7天</SelectItem>
+                          <SelectItem value="30">30天</SelectItem>
+                          <SelectItem value="90">90天</SelectItem>
+                          <SelectItem value="365">365天</SelectItem>
+                          <SelectItem value="-1">永久</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit_status">状态</Label>
+                      <Select 
+                        value={editFormData.status} 
+                        onValueChange={(value) => setEditFormData({ ...editFormData, status: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unused">未使用</SelectItem>
+                          <SelectItem value="used">已使用</SelectItem>
+                          <SelectItem value="expired">已过期</SelectItem>
+                          <SelectItem value="banned">已封禁</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex justify-end space-x-2">
+                      <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)}>
+                        取消
+                      </Button>
+                      <Button type="submit">
+                        保存修改
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
@@ -624,7 +788,11 @@ const Cards = () => {
                     </Button>
                   )}
 
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => openEditDialog(card)}
+                  >
                     <Edit className="w-3 h-3 mr-1" />
                     编辑
                   </Button>
