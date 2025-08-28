@@ -66,8 +66,8 @@ const Finance = () => {
   });
 
   const totalBalance = userProfile?.balance || 0;
-  const totalIncome = balanceRecords?.filter(r => r.type === 'income').reduce((sum, r) => sum + Number(r.amount), 0) || 0;
-  const totalExpense = balanceRecords?.filter(r => r.type === 'expense').reduce((sum, r) => sum + Number(r.amount), 0) || 0;
+  const totalIncome = balanceRecords?.filter(r => ['recharge', 'refund', 'commission'].includes(r.type)).reduce((sum, r) => sum + Number(r.amount), 0) || 0;
+  const totalExpense = balanceRecords?.filter(r => r.type === 'consume').reduce((sum, r) => sum + Number(r.amount), 0) || 0;
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -92,9 +92,17 @@ const Finance = () => {
   };
 
   const getRecordTypeBadge = (type: string) => {
+    const isIncome = ['recharge', 'refund', 'commission'].includes(type);
+    const typeLabels: Record<string, string> = {
+      recharge: '充值',
+      consume: '消费',
+      refund: '退款',
+      commission: '佣金'
+    };
+    
     return (
-      <Badge variant={type === 'income' ? 'default' : 'secondary'}>
-        {type === 'income' ? '收入' : '支出'}
+      <Badge variant={isIncome ? 'default' : 'secondary'}>
+        {typeLabels[type] || type}
       </Badge>
     );
   };
@@ -204,8 +212,8 @@ const Finance = () => {
                           <TableCell>
                             {getRecordTypeBadge(record.type)}
                           </TableCell>
-                          <TableCell className={record.type === 'income' ? 'text-green-600' : 'text-red-600'}>
-                            {record.type === 'income' ? '+' : '-'}¥{Math.abs(Number(record.amount)).toFixed(2)}
+                          <TableCell className={['recharge', 'refund', 'commission'].includes(record.type) ? 'text-green-600' : 'text-red-600'}>
+                            {['recharge', 'refund', 'commission'].includes(record.type) ? '+' : '-'}¥{Math.abs(Number(record.amount)).toFixed(2)}
                           </TableCell>
                           <TableCell>¥{Number(record.balance_before).toFixed(2)}</TableCell>
                           <TableCell>¥{Number(record.balance_after).toFixed(2)}</TableCell>
