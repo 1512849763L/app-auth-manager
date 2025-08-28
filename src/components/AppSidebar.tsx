@@ -27,14 +27,14 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-const menuItems = [
-  { title: "仪表盘", url: "/", icon: Home },
-  { title: "程序管理", url: "/programs", icon: Package },
-  { title: "卡密管理", url: "/cards", icon: Key },
-  { title: "用户管理", url: "/users", icon: Users },
-  { title: "财务管理", url: "/finance", icon: CreditCard },
-  { title: "开发文档", url: "/docs", icon: BookOpen },
-  { title: "系统设置", url: "/settings", icon: Settings },
+const allMenuItems = [
+  { title: "仪表盘", url: "/", icon: Home, roles: ["admin", "user"] },
+  { title: "程序管理", url: "/programs", icon: Package, roles: ["admin"] },
+  { title: "卡密管理", url: "/cards", icon: Key, roles: ["admin", "user"] },
+  { title: "用户管理", url: "/users", icon: Users, roles: ["admin"] },
+  { title: "财务管理", url: "/finance", icon: CreditCard, roles: ["admin"] },
+  { title: "开发文档", url: "/docs", icon: BookOpen, roles: ["admin", "user"] },
+  { title: "系统设置", url: "/settings", icon: Settings, roles: ["admin"] },
 ];
 
 interface AppSidebarProps {
@@ -47,6 +47,11 @@ export function AppSidebar({ userProfile }: AppSidebarProps) {
   const currentPath = location.pathname;
   const { toast } = useToast();
   const collapsed = state === "collapsed";
+
+  // Filter menu items based on user role
+  const menuItems = allMenuItems.filter(item => 
+    item.roles.includes(userProfile?.role || "user")
+  );
 
   const isActive = (path: string) => currentPath === path;
 
