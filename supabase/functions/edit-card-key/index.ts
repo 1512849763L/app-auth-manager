@@ -9,6 +9,7 @@ interface EditCardKeyRequest {
   cardId: string;
   newDurationDays: number;
   newStatus?: string;
+  newMaxMachines?: number;
 }
 
 Deno.serve(async (req) => {
@@ -23,9 +24,9 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { cardId, newDurationDays, newStatus }: EditCardKeyRequest = await req.json();
+    const { cardId, newDurationDays, newStatus, newMaxMachines }: EditCardKeyRequest = await req.json();
 
-    console.log('Editing card key:', { cardId, newDurationDays, newStatus });
+    console.log('Editing card key:', { cardId, newDurationDays, newStatus, newMaxMachines });
 
     // Get the current card information with program details
     const { data: cardData, error: cardError } = await supabase
@@ -121,6 +122,10 @@ Deno.serve(async (req) => {
 
     if (newStatus && newStatus !== cardData.status) {
       updates.status = newStatus;
+    }
+
+    if (newMaxMachines !== undefined && newMaxMachines !== cardData.max_machines) {
+      updates.max_machines = newMaxMachines;
     }
 
     // Update the card key

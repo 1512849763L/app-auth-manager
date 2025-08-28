@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
       ).join('').toUpperCase();
     };
 
-    const testMachineCodes = Array.from({ length: machineCount }, generateMachineCode);
+    const testMachineCodes = Array.from({ length: 1 }, generateMachineCode);
     const cardKey = generateCardKey();
 
     console.log(`Creating test card with key: ${cardKey}`);
@@ -100,8 +100,8 @@ Deno.serve(async (req) => {
         created_by: user.id,
         status: 'used',
         bound_machine_codes: testMachineCodes,
-        used_machines: machineCount,
-        max_machines: 5,
+        used_machines: 1,
+        max_machines: 1,
         used_at: new Date().toISOString()
       })
       .select()
@@ -124,9 +124,9 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         cardKey: cardKey,
-        machineCount: machineCount,
+        machineCount: 1,
         machineCodes: testMachineCodes,
-        message: `测试卡密创建成功，已绑定 ${machineCount} 个机器码`
+        message: `测试卡密创建成功，已绑定 1 个机器码（默认限制为1台机器）`
       }),
       { 
         status: 200, 

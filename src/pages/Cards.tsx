@@ -42,6 +42,7 @@ const Cards = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [programFilter, setProgramFilter] = useState("all");
+  const [userRole, setUserRole] = useState<string>("");
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -54,6 +55,7 @@ const Cards = () => {
     program_id: "",
     duration_days: "",
     status: "",
+    max_machines: "",
   });
 
   const [batchData, setBatchData] = useState({
@@ -65,7 +67,27 @@ const Cards = () => {
 
   useEffect(() => {
     fetchData();
+    fetchUserRole();
   }, []);
+
+  const fetchUserRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) {
+          setUserRole(profile.role);
+        }
+      }
+    } catch (error) {
+      console.error('获取用户角色失败:', error);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -152,6 +174,7 @@ const Cards = () => {
           duration_days: parseInt(formData.duration_days),
           user_id: user.id,
           created_by: user.id,
+          max_machines: 1,
         });
       }
 
@@ -211,6 +234,7 @@ const Cards = () => {
           duration_days: parseInt(batchData.duration_days),
           user_id: user.id,
           created_by: user.id,
+          max_machines: 1,
         });
       }
 
@@ -290,7 +314,9 @@ const Cards = () => {
         body: {
           cardId: editingCard.id,
           newDurationDays: parseInt(editFormData.duration_days),
-          newStatus: editFormData.status !== editingCard.status ? editFormData.status : undefined
+          newStatus: editFormData.status !== editingCard.status ? editFormData.status : undefined,
+          newMaxMachines: userRole === 'admin' && editFormData.max_machines !== (editingCard.max_machines || 1).toString() 
+            ? parseInt(editFormData.max_machines) : undefined
         }
       });
 
@@ -329,6 +355,7 @@ const Cards = () => {
         program_id: "",
         duration_days: "",
         status: "",
+        max_machines: "",
       });
       fetchData();
     } catch (error) {
@@ -346,6 +373,7 @@ const Cards = () => {
       program_id: card.program_id,
       duration_days: card.duration_days.toString(),
       status: card.status,
+      max_machines: (card.max_machines || 1).toString(),
     });
     setShowEditDialog(true);
   };
@@ -534,7 +562,7 @@ const Cards = () => {
                     body: { 
                       programId: programs[0].id,
                       durationDays: 30,
-                      machineCount: 2
+                      machineCount: 1
                     }
                   });
 
@@ -814,7 +842,26 @@ const Cards = () => {
                       )}
                      </div>
 
-                     {/* 机器绑定信息 */}
+                     {/* 管理员专属：最大机器数设置 */}
+                     {userRole === 'admin' && (
+                       <div className="space-y-2">
+                         <Label htmlFor="edit_max_machines">最大机器绑定数</Label>
+                         <Input
+                           id="edit_max_machines"
+                           type="number"
+                           min="1"
+                           max="100"
+                           value={editFormData.max_machines}
+                           onChange={(e) => setEditFormData({ ...editFormData, max_machines: e.target.value })}
+                           placeholder="默认为1"
+                         />
+                         <p className="text-xs text-muted-foreground">
+                           管理员可以设置每个卡密最多能绑定的机器数量
+                         </p>
+                       </div>
+                     )}
+
+                      {/* 机器绑定信息 */}
                      {editingCard.status === 'used' && editingCard.bound_machine_codes && editingCard.bound_machine_codes.length > 0 && (
                        <div className="space-y-2 p-3 border rounded-lg bg-blue-50 dark:bg-blue-900/20">
                          <div className="flex items-center justify-between">
