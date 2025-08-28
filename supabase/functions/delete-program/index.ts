@@ -18,16 +18,35 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Delete program request received:', req.method);
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!supabaseUrl || !supabaseServiceRoleKey) {
+      console.error('Missing Supabase configuration');
       throw new Error('Missing Supabase configuration');
     }
 
+    // Get auth token from request
+    const authHeader = req.headers.get('Authorization');
+    console.log('Auth header present:', !!authHeader);
+    
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    const { programId }: DeleteProgramRequest = await req.json();
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.error('Error parsing request body:', parseError);
+      return new Response(
+        JSON.stringify({ error: '请求数据格式错误' }), 
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { programId }: DeleteProgramRequest = requestBody;
+    console.log('Request body:', requestBody);
 
     if (!programId) {
       return new Response(
