@@ -1,216 +1,330 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth } from '@/hooks/useAuth';
-import { Lock, User, Mail, ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { Eye, EyeOff, Shield, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 const Auth = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const { toast } = useToast();
   const navigate = useNavigate();
-  const { signIn, signUp, user } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
-  // 如果已登录，重定向到主页
+  // 登录表单状态
+  const [loginData, setLoginData] = useState({
+    email: "",
+    password: "",
+  });
+
+  // 注册表单状态
+  const [registerData, setRegisterData] = useState({
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+
   useEffect(() => {
-    if (user) {
-      navigate('/');
-    }
-  }, [user, navigate]);
+    // 设置认证状态监听器
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          navigate('/');
+        }
+      }
+    );
 
-  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
+    // 检查现有会话
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        navigate('/');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-    
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
+    setIsLoading(true);
 
-    const { error } = await signIn(email, password);
-    
-    if (error) {
-      setError(error.message);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: loginData.email,
+        password: loginData.password,
+      });
+
+      if (error) {
+        toast({
+          title: "登录失败",
+          description: error.message === "Invalid login credentials" 
+            ? "邮箱或密码错误" 
+            : error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "登录成功",
+        description: "欢迎回来！",
+      });
+    } catch (error) {
+      toast({
+        title: "登录失败",
+        description: "系统错误，请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-    
-    setLoading(false);
   };
 
-  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
     
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-    const username = formData.get('username') as string;
-
-    if (password.length < 6) {
-      setError('密码至少需要6个字符');
-      setLoading(false);
+    if (registerData.password !== registerData.confirmPassword) {
+      toast({
+        title: "注册失败",
+        description: "密码确认不匹配",
+        variant: "destructive",
+      });
       return;
     }
 
-    const { error } = await signUp(email, password, username);
-    
-    if (error) {
-      if (error.message.includes('already registered')) {
-        setError('该邮箱已被注册，请使用其他邮箱或直接登录');
-      } else {
-        setError(error.message);
-      }
-    } else {
-      setSuccess('注册成功！请检查您的邮箱以完成验证。');
+    if (registerData.password.length < 6) {
+      toast({
+        title: "注册失败",
+        description: "密码长度至少6位",
+        variant: "destructive",
+      });
+      return;
     }
-    
-    setLoading(false);
+
+    setIsLoading(true);
+
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { error } = await supabase.auth.signUp({
+        email: registerData.email,
+        password: registerData.password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            username: registerData.username,
+          }
+        }
+      });
+
+      if (error) {
+        toast({
+          title: "注册失败",
+          description: error.message === "User already registered" 
+            ? "该邮箱已被注册" 
+            : error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "注册成功",
+        description: "请检查您的邮箱以确认账户",
+      });
+      
+      // 清空表单
+      setRegisterData({
+        username: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+      });
+    } catch (error) {
+      toast({
+        title: "注册失败",
+        description: "系统错误，请稍后重试",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-accent/10 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="mb-6">
-          <Link
-            to="/"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            返回首页
-          </Link>
-        </div>
-
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-8 h-8 text-primary-foreground" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-full mb-4">
+            <Shield className="w-8 h-8 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">卡密授权系统</h1>
-          <p className="text-muted-foreground mt-2">安全的卡密管理平台</p>
+          <h1 className="text-3xl font-bold text-foreground">卡密授权系统</h1>
+          <p className="text-muted-foreground mt-2">安全可靠的授权管理平台</p>
         </div>
 
-        <Card className="shadow-lg border-0 bg-card/80 backdrop-blur">
-          <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-center text-xl">账户认证</CardTitle>
-            <CardDescription className="text-center">
-              登录或注册您的管理账户
+        <Card className="border-0 shadow-xl bg-card/50 backdrop-blur-sm">
+          <CardHeader className="text-center pb-4">
+            <CardTitle className="text-2xl">欢迎使用</CardTitle>
+            <CardDescription>
+              请登录或创建新账户来管理您的授权系统
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="signin" className="w-full">
+            <Tabs defaultValue="login" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="signin">登录</TabsTrigger>
-                <TabsTrigger value="signup">注册</TabsTrigger>
+                <TabsTrigger value="login" className="flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  登录
+                </TabsTrigger>
+                <TabsTrigger value="register" className="flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  注册
+                </TabsTrigger>
               </TabsList>
 
-              {error && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              {success && (
-                <Alert className="mb-4 border-green-200 bg-green-50 text-green-800">
-                  <AlertDescription>{success}</AlertDescription>
-                </Alert>
-              )}
-
-              <TabsContent value="signin">
-                <form onSubmit={handleSignIn} className="space-y-4">
+              <TabsContent value="login">
+                <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signin-email">邮箱地址</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signin-email"
-                        name="email"
-                        type="email"
-                        placeholder="请输入邮箱地址"
-                        className="pl-10"
-                        required
-                      />
-                    </div>
+                    <Label htmlFor="login-email">邮箱地址</Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      placeholder="请输入邮箱地址"
+                      value={loginData.email}
+                      onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                      required
+                      className="h-11"
+                    />
                   </div>
+                  
                   <div className="space-y-2">
-                    <Label htmlFor="signin-password">密码</Label>
+                    <Label htmlFor="login-password">密码</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
-                        id="signin-password"
-                        name="password"
-                        type="password"
+                        id="login-password"
+                        type={showPassword ? "text" : "password"}
                         placeholder="请输入密码"
-                        className="pl-10"
+                        value={loginData.password}
+                        onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                         required
+                        className="h-11 pr-10"
                       />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
                     </div>
                   </div>
+
                   <Button
                     type="submit"
-                    className="w-full"
-                    disabled={loading}
+                    className="w-full h-11 text-base font-medium"
+                    disabled={isLoading}
                   >
-                    {loading ? '登录中...' : '登录'}
+                    {isLoading ? "登录中..." : "登录"}
                   </Button>
                 </form>
               </TabsContent>
 
-              <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-4">
+              <TabsContent value="register">
+                <form onSubmit={handleRegister} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-username">用户名</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-username"
-                        name="username"
-                        type="text"
-                        placeholder="请输入用户名"
-                        className="pl-10"
-                        required
-                      />
-                    </div>
+                    <Label htmlFor="register-username">用户名</Label>
+                    <Input
+                      id="register-username"
+                      type="text"
+                      placeholder="请输入用户名"
+                      value={registerData.username}
+                      onChange={(e) => setRegisterData({ ...registerData, username: e.target.value })}
+                      required
+                      className="h-11"
+                    />
                   </div>
+
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">邮箱地址</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-email"
-                        name="email"
-                        type="email"
-                        placeholder="请输入邮箱地址"
-                        className="pl-10"
-                        required
-                      />
-                    </div>
+                    <Label htmlFor="register-email">邮箱地址</Label>
+                    <Input
+                      id="register-email"
+                      type="email"
+                      placeholder="请输入邮箱地址"
+                      value={registerData.email}
+                      onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
+                      required
+                      className="h-11"
+                    />
                   </div>
+                  
                   <div className="space-y-2">
-                    <Label htmlFor="signup-password">密码</Label>
+                    <Label htmlFor="register-password">密码</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
-                        id="signup-password"
-                        name="password"
-                        type="password"
-                        placeholder="至少6个字符"
-                        className="pl-10"
+                        id="register-password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="请输入密码（至少6位）"
+                        value={registerData.password}
+                        onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
                         required
                         minLength={6}
+                        className="h-11 pr-10"
                       />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
                     </div>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="register-confirm-password">确认密码</Label>
+                    <Input
+                      id="register-confirm-password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="请再次输入密码"
+                      value={registerData.confirmPassword}
+                      onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}
+                      required
+                      className="h-11"
+                    />
+                  </div>
+
                   <Button
                     type="submit"
-                    className="w-full"
-                    disabled={loading}
+                    className="w-full h-11 text-base font-medium"
+                    disabled={isLoading}
                   >
-                    {loading ? '注册中...' : '注册账户'}
+                    {isLoading ? "注册中..." : "创建账户"}
                   </Button>
                 </form>
               </TabsContent>
@@ -218,10 +332,8 @@ const Auth = () => {
           </CardContent>
         </Card>
 
-        <div className="text-center mt-6">
-          <p className="text-xs text-muted-foreground">
-            使用本系统即表示您同意我们的服务条款和隐私政策
-          </p>
+        <div className="text-center mt-6 text-sm text-muted-foreground">
+          <p>© 2024 卡密授权系统. 保留所有权利.</p>
         </div>
       </div>
     </div>
