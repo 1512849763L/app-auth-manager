@@ -16,6 +16,7 @@ interface CardKey {
   id: string;
   card_key: string;
   program_id: string;
+  user_id?: string;
   status: string;
   expire_at: string | null;
   duration_days: number;
@@ -280,24 +281,13 @@ const Cards = () => {
     if (!editingCard) return;
 
     try {
-      const updateData: any = {};
-      
-      if (editFormData.program_id) {
-        updateData.program_id = editFormData.program_id;
-      }
-      
-      if (editFormData.duration_days) {
-        updateData.duration_days = parseInt(editFormData.duration_days);
-      }
-      
-      if (editFormData.status) {
-        updateData.status = editFormData.status;
-      }
-
-      const { error } = await supabase
-        .from('card_keys')
-        .update(updateData)
-        .eq('id', editingCard.id);
+      const { data, error } = await supabase.functions.invoke('edit-card-key', {
+        body: {
+          cardId: editingCard.id,
+          newDurationDays: parseInt(editFormData.duration_days),
+          newStatus: editFormData.status !== editingCard.status ? editFormData.status : undefined
+        }
+      });
 
       if (error) {
         toast({
@@ -308,9 +298,24 @@ const Cards = () => {
         return;
       }
 
+      if (data.error) {
+        toast({
+          title: "编辑失败",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      let successMessage = "卡密信息已更新";
+      if (data.balanceChange !== 0) {
+        const changeText = data.balanceChange > 0 ? `退款¥${data.balanceChange.toFixed(2)}` : `扣费¥${Math.abs(data.balanceChange).toFixed(2)}`;
+        successMessage += `，${changeText}`;
+      }
+
       toast({
         title: "编辑成功",
-        description: "卡密信息已更新",
+        description: successMessage,
       });
 
       setShowEditDialog(false);
@@ -600,22 +605,13 @@ const Cards = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="edit_program">选择程序</Label>
-                      <Select 
-                        value={editFormData.program_id} 
-                        onValueChange={(value) => setEditFormData({ ...editFormData, program_id: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="请选择程序" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {programs.map((program) => (
-                            <SelectItem key={program.id} value={program.id}>
-                              {program.name} (¥{program.price})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label>所属程序</Label>
+                      <Input 
+                        value={editingCard.programs.name} 
+                        disabled 
+                        className="bg-muted"
+                      />
+                      <p className="text-xs text-muted-foreground">程序不可修改</p>
                     </div>
 
                     <div className="space-y-2">
@@ -636,6 +632,11 @@ const Cards = () => {
                           <SelectItem value="-1">永久</SelectItem>
                         </SelectContent>
                       </Select>
+                      {editingCard.user_id && (
+                        <p className="text-xs text-muted-foreground">
+                          修改时长将自动计算余额变化：延长需要扣费，缩短会自动退款
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -649,11 +650,18 @@ const Cards = () => {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="unused">未使用</SelectItem>
-                          <SelectItem value="used">已使用</SelectItem>
+                          {editingCard.status !== 'used' && (
+                            <SelectItem value="used">已使用</SelectItem>
+                          )}
                           <SelectItem value="expired">已过期</SelectItem>
                           <SelectItem value="banned">已封禁</SelectItem>
                         </SelectContent>
                       </Select>
+                      {editingCard.status === 'used' && (
+                        <p className="text-xs text-muted-foreground text-amber-600">
+                          已使用的卡密不能改回未使用状态
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex justify-end space-x-2">

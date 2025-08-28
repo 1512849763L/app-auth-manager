@@ -1,1 +1,4 @@
 project_id = "sqcvacdpdjeooqyrblbu"
+
+[functions.edit-card-key]
+verify_jwt = true
