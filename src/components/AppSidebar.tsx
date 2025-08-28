@@ -11,7 +11,6 @@ import {
   Package,
   LogOut,
   BookOpen,
-  Mail,
 } from "lucide-react";
 import {
   Sidebar,
@@ -35,7 +34,6 @@ const allMenuItems = [
   { title: "用户管理", url: "/users", icon: Users, roles: ["admin"] },
   { title: "财务管理", url: "/finance", icon: CreditCard, roles: ["admin", "user"] },
   { title: "开发文档", url: "/docs", icon: BookOpen, roles: ["admin", "user"] },
-  { title: "邮箱配置", url: "/email", icon: Mail, roles: ["admin"] },
   { title: "系统设置", url: "/settings", icon: Settings, roles: ["admin"] },
 ];
 
