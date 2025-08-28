@@ -8,11 +8,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DollarSign, TrendingUp, CreditCard, Plus, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { UseRechargeCardDialog } from "@/components/UseRechargeCardDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const Finance = () => {
   const { toast } = useToast();
+  const [useCardDialogOpen, setUseCardDialogOpen] = useState(false);
   
   const { data: balanceRecords, isLoading: loadingRecords } = useQuery({
     queryKey: ['balance-records'],
@@ -105,7 +108,7 @@ const Finance = () => {
             <h1 className="text-2xl font-bold tracking-tight">财务管理</h1>
             <p className="text-muted-foreground">管理账户余额、订单和收入统计</p>
           </div>
-          <Button className="gap-2">
+          <Button onClick={() => setUseCardDialogOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" />
             充值
           </Button>
@@ -284,6 +287,11 @@ const Finance = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <UseRechargeCardDialog
+          open={useCardDialogOpen}
+          onOpenChange={setUseCardDialogOpen}
+        />
       </div>
     </Layout>
   );

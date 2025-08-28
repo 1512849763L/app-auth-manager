@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { RechargeCardDialog } from "@/components/RechargeCardDialog";
 import { 
   Settings as SettingsIcon, 
   CreditCard, 
@@ -16,7 +18,11 @@ import {
   Save, 
   TestTube,
   ExternalLink,
-  Zap
+  Zap,
+  Plus,
+  Search,
+  Eye,
+  Copy
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,6 +41,8 @@ const Settings = () => {
   const queryClient = useQueryClient();
   const [webhookUrl, setWebhookUrl] = useState("");
   const [isWebhookLoading, setIsWebhookLoading] = useState(false);
+  const [rechargeDialogOpen, setRechargeDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['system-settings'],
@@ -46,6 +54,20 @@ const Settings = () => {
       
       if (error) throw error;
       return data as SystemSetting[];
+    }
+  });
+
+  const { data: rechargeCards, isLoading: loadingCards } = useQuery({
+    queryKey: ['recharge-cards'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('recharge_cards')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      
+      if (error) throw error;
+      return data;
     }
   });
 
@@ -85,6 +107,31 @@ const Settings = () => {
   const getSettingsByCategory = (category: string) => {
     return settings?.filter(s => s.category === category) || [];
   };
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+      unused: "default",
+      used: "secondary", 
+      expired: "destructive"
+    };
+    
+    const labels: Record<string, string> = {
+      unused: "未使用",
+      used: "已使用",
+      expired: "已过期"
+    };
+    
+    return (
+      <Badge variant={variants[status] || "outline"}>
+        {labels[status] || status}
+      </Badge>
+    );
+  };
+
+  const filteredRechargeCards = rechargeCards?.filter(card => 
+    card.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    card.amount.toString().includes(searchTerm)
+  ) || [];
 
   const handleTestYiPay = async () => {
     const merchantId = getSettingValue('yipay_merchant_id');
@@ -188,9 +235,10 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="general" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="general">基本设置</TabsTrigger>
             <TabsTrigger value="payment">支付配置</TabsTrigger>
+            <TabsTrigger value="recharge">充值卡密</TabsTrigger>
             <TabsTrigger value="integration">集成配置</TabsTrigger>
             <TabsTrigger value="security">安全设置</TabsTrigger>
           </TabsList>
@@ -305,6 +353,112 @@ const Settings = () => {
                     <li>• 回调地址：支付完成后的通知地址</li>
                   </ul>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 充值卡密管理 */}
+          <TabsContent value="recharge" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    充值卡密管理
+                  </CardTitle>
+                  <Button onClick={() => setRechargeDialogOpen(true)} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    生成卡密
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Input
+                    placeholder="搜索卡密..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button variant="outline" size="icon">
+                    <Search className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>卡密</TableHead>
+                      <TableHead>金额</TableHead>
+                      <TableHead>状态</TableHead>
+                      <TableHead>使用者</TableHead>
+                      <TableHead>过期时间</TableHead>
+                      <TableHead>创建时间</TableHead>
+                      <TableHead>操作</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loadingCards ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-4">
+                          加载中...
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredRechargeCards.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
+                          暂无卡密记录
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredRechargeCards.map((card) => (
+                        <TableRow key={card.id}>
+                          <TableCell className="font-mono text-sm">
+                            {card.code}
+                          </TableCell>
+                          <TableCell>¥{Number(card.amount).toFixed(2)}</TableCell>
+                          <TableCell>
+                            {getStatusBadge(card.status)}
+                          </TableCell>
+                          <TableCell>
+                            {card.used_by ? (
+                              <span className="text-sm text-muted-foreground">
+                                {card.used_by.slice(0, 8)}...
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {card.expire_at ? (
+                              new Date(card.expire_at).toLocaleDateString()
+                            ) : (
+                              <span className="text-muted-foreground">永不过期</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(card.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                navigator.clipboard.writeText(card.code);
+                                toast({
+                                  title: "复制成功",
+                                  description: "卡密已复制到剪贴板",
+                                });
+                              }}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>
@@ -455,6 +609,11 @@ const Settings = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <RechargeCardDialog
+          open={rechargeDialogOpen}
+          onOpenChange={setRechargeDialogOpen}
+        />
       </div>
     </Layout>
   );
