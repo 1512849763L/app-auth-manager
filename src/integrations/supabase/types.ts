@@ -14,6 +14,198 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_permissions: {
+        Row: {
+          agent_id: string
+          can_generate_keys: boolean | null
+          can_manage_users: boolean | null
+          can_view_keys: boolean | null
+          created_at: string
+          created_by: string
+          id: string
+          program_id: string
+        }
+        Insert: {
+          agent_id: string
+          can_generate_keys?: boolean | null
+          can_manage_users?: boolean | null
+          can_view_keys?: boolean | null
+          created_at?: string
+          created_by: string
+          id?: string
+          program_id: string
+        }
+        Update: {
+          agent_id?: string
+          can_generate_keys?: boolean | null
+          can_manage_users?: boolean | null
+          can_view_keys?: boolean | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          program_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_permissions_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      balance_records: {
+        Row: {
+          amount: number
+          balance_after: number
+          balance_before: number
+          created_at: string
+          description: string | null
+          id: string
+          order_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          balance_after?: number
+          balance_before?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_id?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          balance_before?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "balance_records_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      card_keys: {
+        Row: {
+          card_key: string
+          created_at: string
+          created_by: string
+          duration_days: number | null
+          expire_at: string | null
+          id: string
+          program_id: string
+          status: string
+          updated_at: string
+          used_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          card_key: string
+          created_at?: string
+          created_by: string
+          duration_days?: number | null
+          expire_at?: string | null
+          id?: string
+          program_id: string
+          status?: string
+          updated_at?: string
+          used_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          card_key?: string
+          created_at?: string
+          created_by?: string
+          duration_days?: number | null
+          expire_at?: string | null
+          id?: string
+          program_id?: string
+          status?: string
+          updated_at?: string
+          used_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_keys_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          amount: number
+          card_key_id: string | null
+          cost_amount: number
+          created_at: string
+          id: string
+          payment_id: string | null
+          payment_method: string | null
+          program_id: string
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          card_key_id?: string | null
+          cost_amount?: number
+          created_at?: string
+          id?: string
+          payment_id?: string | null
+          payment_method?: string | null
+          program_id: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          card_key_id?: string | null
+          cost_amount?: number
+          created_at?: string
+          id?: string
+          payment_id?: string | null
+          payment_method?: string | null
+          program_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_card_key_id_fkey"
+            columns: ["card_key_id"]
+            isOneToOne: false
+            referencedRelation: "card_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           balance: number
@@ -41,12 +233,57 @@ export type Database = {
         }
         Relationships: []
       }
+      programs: {
+        Row: {
+          api_key: string
+          cost_price: number
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          price: number
+          status: string
+          updated_at: string
+          version: string | null
+        }
+        Insert: {
+          api_key: string
+          cost_price?: number
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          price?: number
+          status?: string
+          updated_at?: string
+          version?: string | null
+        }
+        Update: {
+          api_key?: string
+          cost_price?: number
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          price?: number
+          status?: string
+          updated_at?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_card_key: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       user_role: "admin" | "agent" | "user"
