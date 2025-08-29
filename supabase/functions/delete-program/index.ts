@@ -18,25 +18,26 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Delete program request received:', req.method);
+    console.log('Delete program request received:', req.method, req.url);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!supabaseUrl || !supabaseServiceRoleKey) {
       console.error('Missing Supabase configuration');
-      throw new Error('Missing Supabase configuration');
+      return new Response(
+        JSON.stringify({ error: 'Supabase配置缺失' }), 
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Get auth token from request
-    const authHeader = req.headers.get('Authorization');
-    console.log('Auth header present:', !!authHeader);
-    
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     let requestBody;
     try {
-      requestBody = await req.json();
+      const bodyText = await req.text();
+      console.log('Raw request body:', bodyText);
+      requestBody = JSON.parse(bodyText);
     } catch (parseError) {
       console.error('Error parsing request body:', parseError);
       return new Response(
@@ -46,7 +47,7 @@ serve(async (req) => {
     }
 
     const { programId }: DeleteProgramRequest = requestBody;
-    console.log('Request body:', requestBody);
+    console.log('Parsed request body:', requestBody);
 
     if (!programId) {
       console.error('Missing programId in request');
@@ -56,7 +57,11 @@ serve(async (req) => {
       );
     }
 
-    console.log('Deleting program:', programId);
+    console.log('Attempting to delete program:', programId);
+
+    // Get auth token from request
+    const authHeader = req.headers.get('Authorization');
+    console.log('Auth header present:', !!authHeader);
 
     // 验证用户身份 - 检查是否为管理员
     if (authHeader) {

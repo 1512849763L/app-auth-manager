@@ -67,7 +67,8 @@ serve(async (req) => {
 
     // 如果是未使用的卡密且有用户，需要退回余额
     if (cardData.status === 'unused' && cardData.user_id) {
-      refundAmount = cardData.programs.price;
+      // 退回程序的售价（用户购买时支付的金额）
+      refundAmount = Number(cardData.programs.price) || 0;
       
       console.log('Processing refund for unused card, amount:', refundAmount);
 
