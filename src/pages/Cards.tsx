@@ -54,6 +54,8 @@ const Cards = () => {
     quantity: "1",
   });
 
+  const [packages, setPackages] = useState<any[]>([]);
+
   const [editFormData, setEditFormData] = useState({
     program_id: "",
     duration_days: "",
@@ -110,6 +112,17 @@ const Cards = () => {
         return;
       }
 
+      // 获取套餐包列表
+      const { data: packagesData, error: packagesError } = await supabase
+        .from('subscription_packages')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order');
+
+      if (packagesError) {
+        console.error('获取套餐包失败:', packagesError);
+      }
+
       // 获取卡密列表
       const { data: cardsData, error: cardsError } = await supabase
         .from('card_keys')
@@ -132,6 +145,7 @@ const Cards = () => {
       }
 
       setPrograms(programsData || []);
+      setPackages(packagesData || []);
       setCardKeys(cardsData || []);
     } catch (error) {
       toast({
@@ -194,9 +208,27 @@ const Cards = () => {
         return;
       }
 
-      // 如果不是管理员，需要检查余额并扣费
+      // 如果不是管理员，需要检查余额并根据套餐包计算价格
       if (userProfile.role !== 'admin') {
-        const totalCost = selectedProgram.price * quantity;
+        // 获取选择的套餐包信息
+        const { data: packageData, error: packageError } = await supabase
+          .from('subscription_packages')
+          .select('*')
+          .eq('duration_days', parseInt(formData.duration_days))
+          .eq('is_active', true)
+          .single();
+
+        let priceMultiplier = 1.0;
+        if (!packageError && packageData) {
+          priceMultiplier = Number(packageData.price_multiplier);
+        } else {
+          // 如果没有匹配的套餐包，按天数比例计算
+          const durationDays = parseInt(formData.duration_days);
+          const baseDays = 30; // 基准30天
+          priceMultiplier = durationDays / baseDays;
+        }
+
+        const totalCost = selectedProgram.price * quantity * priceMultiplier;
         
         if (userProfile.balance < totalCost) {
           toast({
@@ -229,7 +261,7 @@ const Cards = () => {
             user_id: user.id,
             amount: -totalCost,
             type: 'consume',
-            description: `生成${selectedProgram.name}卡密 x${quantity}`,
+            description: `生成${selectedProgram.name}卡密 x${quantity} (${formData.duration_days}天套餐，${priceMultiplier}x倍价格)`,
             balance_before: userProfile.balance,
             balance_after: userProfile.balance - totalCost
           });
@@ -280,7 +312,7 @@ const Cards = () => {
 
       toast({
         title: "卡密创建成功",
-        description: `成功生成 ${quantity} 个卡密${userProfile.role !== 'admin' ? '，已扣除余额' : ''}`,
+        description: `成功生成 ${quantity} 个卡密${userProfile.role !== 'admin' ? '，已扣除相应余额' : ''}`,
       });
 
       setFormData({
@@ -334,9 +366,27 @@ const Cards = () => {
         return;
       }
 
-      // 如果不是管理员，需要检查余额并扣费
+      // 如果不是管理员，需要检查余额并根据套餐包计算价格
       if (userProfile.role !== 'admin') {
-        const totalCost = selectedProgram.price * quantity;
+        // 获取选择的套餐包信息
+        const { data: packageData, error: packageError } = await supabase
+          .from('subscription_packages')
+          .select('*')
+          .eq('duration_days', parseInt(batchData.duration_days))
+          .eq('is_active', true)
+          .single();
+
+        let priceMultiplier = 1.0;
+        if (!packageError && packageData) {
+          priceMultiplier = Number(packageData.price_multiplier);
+        } else {
+          // 如果没有匹配的套餐包，按天数比例计算
+          const durationDays = parseInt(batchData.duration_days);
+          const baseDays = 30; // 基准30天
+          priceMultiplier = durationDays / baseDays;
+        }
+
+        const totalCost = selectedProgram.price * quantity * priceMultiplier;
         
         if (userProfile.balance < totalCost) {
           toast({
@@ -369,7 +419,7 @@ const Cards = () => {
             user_id: user.id,
             amount: -totalCost,
             type: 'consume',
-            description: `批量生成${selectedProgram.name}卡密 x${quantity}`,
+            description: `批量生成${selectedProgram.name}卡密 x${quantity} (${batchData.duration_days}天套餐，${priceMultiplier}x倍价格)`,
             balance_before: userProfile.balance,
             balance_after: userProfile.balance - totalCost
           });

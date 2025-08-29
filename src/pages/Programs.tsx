@@ -16,6 +16,8 @@ const Programs = () => {
   const [programs, setPrograms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingProgram, setEditingProgram] = useState<any>(null);
   const [showApiKey, setShowApiKey] = useState<{ [key: string]: boolean }>({});
   const [userRole, setUserRole] = useState<string | null>(null);
   const { toast } = useToast();
@@ -30,9 +32,33 @@ const Programs = () => {
     machine_limit_note: "",
   });
 
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    description: "",
+    price: "",
+    cost_price: "",
+    status: "active",
+    max_machines: "",
+    machine_limit_note: "",
+  });
+
   useEffect(() => {
     fetchPrograms();
   }, []);
+
+  const openEditDialog = (program: any) => {
+    setEditingProgram(program);
+    setEditFormData({
+      name: program.name,
+      description: program.description || "",
+      price: program.price.toString(),
+      cost_price: program.cost_price.toString(),
+      status: program.status,
+      max_machines: program.max_machines?.toString() || "",
+      machine_limit_note: program.machine_limit_note || "",
+    });
+    setShowEditDialog(true);
+  };
 
   const fetchPrograms = async () => {
     try {
@@ -95,6 +121,71 @@ const Programs = () => {
     return Array.from({ length: 32 }, () => 
       Math.random().toString(36)[2] || '0'
     ).join('').toUpperCase();
+  };
+
+  const handleEditProgram = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!editingProgram) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "未登录",
+          description: "请先登录后再操作",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('programs')
+        .update({
+          name: editFormData.name,
+          description: editFormData.description,
+          price: parseFloat(editFormData.price),
+          cost_price: parseFloat(editFormData.cost_price),
+          status: editFormData.status,
+          max_machines: editFormData.max_machines ? parseInt(editFormData.max_machines) : null,
+          machine_limit_note: editFormData.machine_limit_note || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingProgram.id);
+
+      if (error) {
+        toast({
+          title: "更新程序失败",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "更新成功",
+        description: "程序信息已更新",
+      });
+
+      setEditFormData({
+        name: "",
+        description: "",
+        price: "",
+        cost_price: "",
+        status: "active",
+        max_machines: "",
+        machine_limit_note: "",
+      });
+      setShowEditDialog(false);
+      setEditingProgram(null);
+      fetchPrograms();
+    } catch (error) {
+      toast({
+        title: "更新程序错误",
+        description: "系统错误，请稍后重试",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCreateProgram = async (e: React.FormEvent) => {
@@ -462,12 +553,7 @@ const Programs = () => {
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => {
-                      toast({
-                        title: "编辑功能",
-                        description: "编辑功能正在开发中",
-                      });
-                    }}
+                    onClick={() => openEditDialog(program)}
                   >
                     <Edit className="w-3 h-3 mr-1" />
                     编辑
@@ -475,12 +561,7 @@ const Programs = () => {
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => {
-                      toast({
-                        title: "设置功能",
-                        description: "设置功能正在开发中",
-                      });
-                    }}
+                    onClick={() => openEditDialog(program)}
                   >
                     <Settings className="w-3 h-3 mr-1" />
                     设置
@@ -515,6 +596,117 @@ const Programs = () => {
             </Button>
           </div>
         )}
+
+        {/* 编辑程序对话框 */}
+        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>编辑程序</DialogTitle>
+              <DialogDescription>
+                修改程序信息和配置
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleEditProgram} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_name">程序名称</Label>
+                <Input
+                  id="edit_name"
+                  placeholder="请输入程序名称"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit_description">程序描述</Label>
+                <Textarea
+                  id="edit_description"
+                  placeholder="请输入程序描述"
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_price">售价 (元)</Label>
+                  <Input
+                    id="edit_price"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={editFormData.price}
+                    onChange={(e) => setEditFormData({ ...editFormData, price: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit_cost_price">成本价 (元)</Label>
+                  <Input
+                    id="edit_cost_price"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={editFormData.cost_price}
+                    onChange={(e) => setEditFormData({ ...editFormData, cost_price: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit_status">状态</Label>
+                <Select value={editFormData.status} onValueChange={(value) => setEditFormData({ ...editFormData, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">激活</SelectItem>
+                    <SelectItem value="inactive">停用</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit_max_machines">最大机器数</Label>
+                <Input
+                  id="edit_max_machines"
+                  type="number"
+                  placeholder="留空表示无限制"
+                  value={editFormData.max_machines}
+                  onChange={(e) => setEditFormData({ ...editFormData, max_machines: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit_machine_limit_note">机器限制说明</Label>
+                <Textarea
+                  id="edit_machine_limit_note"
+                  placeholder="可选的机器限制说明"
+                  value={editFormData.machine_limit_note}
+                  onChange={(e) => setEditFormData({ ...editFormData, machine_limit_note: e.target.value })}
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowEditDialog(false)}
+                >
+                  取消
+                </Button>
+                <Button type="submit">
+                  保存更改
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

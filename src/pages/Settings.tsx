@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RechargeCardDialog } from "@/components/RechargeCardDialog";
+import PackageManagement from "@/components/PackageManagement";
 import { 
   Settings as SettingsIcon, 
   CreditCard, 
@@ -159,12 +160,13 @@ const Settings = () => {
           </Badge>
         </div>
 
-        <Tabs defaultValue="general" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="general">基本设置</TabsTrigger>
-            <TabsTrigger value="recharge">充值卡密</TabsTrigger>
-            <TabsTrigger value="security">安全设置</TabsTrigger>
-          </TabsList>
+            <Tabs defaultValue="general" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="general">常规设置</TabsTrigger>
+                <TabsTrigger value="recharge">充值管理</TabsTrigger>
+                <TabsTrigger value="packages">套餐配置</TabsTrigger>
+                <TabsTrigger value="security">安全设置</TabsTrigger>
+              </TabsList>
 
           {/* 基本设置 */}
           <TabsContent value="general" className="space-y-4">
@@ -380,6 +382,21 @@ const Settings = () => {
                     )}
                   </TableBody>
                 </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 套餐配置 */}
+          <TabsContent value="packages" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
+                  套餐配置管理
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PackageManagement />
               </CardContent>
             </Card>
           </TabsContent>
