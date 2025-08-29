@@ -176,7 +176,7 @@ const Programs = () => {
   };
 
   const deleteProgram = async (programId: string, programName: string) => {
-    if (!window.confirm(`确定要删除程序 "${programName}" 吗？\n\n⚠️ 注意：\n• 删除前请确保没有关联的有效卡密\n• 此操作不可撤销`)) {
+    if (!window.confirm(`确定要删除程序 "${programName}" 吗？\n\n⚠️ 删除后会：\n• 自动删除所有关联卡密\n• 未使用的卡密全额退款\n• 已使用但未到期的卡密按剩余时间比例退款\n• 此操作不可撤销`)) {
       return;
     }
 
@@ -212,10 +212,26 @@ const Programs = () => {
         return;
       }
 
-      toast({
-        title: "删除成功",
-        description: "程序已成功删除",
-      });
+      if (data && data.details) {
+        const { deletedCards, refundedCards, totalRefunded } = data.details;
+        let message = "程序已成功删除";
+        if (deletedCards > 0) {
+          message += `\n• 删除了 ${deletedCards} 个关联卡密`;
+          if (refundedCards > 0) {
+            message += `\n• 退款 ${refundedCards} 个卡密，共计 ¥${totalRefunded.toFixed(2)}`;
+          }
+        }
+        
+        toast({
+          title: "删除成功",
+          description: message,
+        });
+      } else {
+        toast({
+          title: "删除成功",
+          description: "程序已成功删除",
+        });
+      }
 
       fetchPrograms();
     } catch (error: any) {

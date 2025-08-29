@@ -123,13 +123,20 @@ serve(async (req) => {
       );
     }
 
-    // 检查是否有关联的卡密
+    // 获取所有关联的卡密，包含程序价格信息用于退款
     const { data: cardKeysData, error: cardKeysError } = await supabase
       .from('card_keys')
-      .select('id, status')
+      .select(`
+        *,
+        programs (
+          name,
+          price,
+          cost_price
+        )
+      `)
       .eq('program_id', programId);
 
-    console.log('Card keys check:', { cardKeysData, cardKeysError });
+    console.log('Card keys check:', { cardKeysCount: cardKeysData?.length, cardKeysError });
 
     if (cardKeysError) {
       console.error('Error checking card keys:', cardKeysError);
@@ -139,20 +146,102 @@ serve(async (req) => {
       );
     }
 
-    // 如果有关联的卡密，不允许删除
+    let totalRefunded = 0;
+    let refundedCards = 0;
+
+    // 处理所有关联卡密的退款和删除
     if (cardKeysData && cardKeysData.length > 0) {
-      const activeCards = cardKeysData.filter(card => card.status === 'unused' || card.status === 'used');
-      console.log('Active cards found:', activeCards.length, 'out of', cardKeysData.length);
+      console.log(`Processing ${cardKeysData.length} card keys for deletion and refund`);
       
-      if (activeCards.length > 0) {
-        console.log('Cannot delete program due to active cards');
+      for (const card of cardKeysData) {
+        let refundAmount = 0;
+        
+        // 只对有用户的卡密进行退款处理
+        if (card.user_id) {
+          if (card.status === 'unused') {
+            // 未使用的卡密全额退款
+            refundAmount = Number(card.programs.price) || 0;
+            console.log(`Card ${card.card_key}: unused, full refund ${refundAmount}`);
+          } else if (card.status === 'used' && card.expire_at) {
+            // 已使用但未到期的卡密按剩余时间比例退款
+            const now = new Date();
+            const expireAt = new Date(card.expire_at);
+            const usedAt = new Date(card.used_at || card.created_at);
+            
+            if (expireAt > now) {
+              const totalDuration = expireAt.getTime() - usedAt.getTime();
+              const remainingDuration = expireAt.getTime() - now.getTime();
+              const refundRatio = remainingDuration / totalDuration;
+              refundAmount = Math.max(0, Number(card.programs.price) * refundRatio);
+              console.log(`Card ${card.card_key}: used but not expired, partial refund ${refundAmount} (ratio: ${refundRatio.toFixed(2)})`);
+            } else {
+              console.log(`Card ${card.card_key}: expired, no refund`);
+            }
+          }
+
+          // 处理退款
+          if (refundAmount > 0) {
+            // 获取用户当前余额
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('balance')
+              .eq('id', card.user_id)
+              .single();
+
+            if (!profileError && profileData) {
+              const currentBalance = Number(profileData.balance) || 0;
+              const newBalance = currentBalance + refundAmount;
+
+              // 更新用户余额
+              const { error: balanceError } = await supabase
+                .from('profiles')
+                .update({ 
+                  balance: newBalance,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', card.user_id);
+
+              if (!balanceError) {
+                // 记录余额变动
+                await supabase
+                  .from('balance_records')
+                  .insert({
+                    user_id: card.user_id,
+                    type: 'refund',
+                    amount: refundAmount,
+                    balance_before: currentBalance,
+                    balance_after: newBalance,
+                    description: `程序删除退款: ${card.programs.name} - ${card.card_key}`
+                  });
+
+                totalRefunded += refundAmount;
+                refundedCards++;
+                console.log(`Refunded ${refundAmount} to user ${card.user_id} for card ${card.card_key}`);
+              } else {
+                console.error(`Failed to update balance for user ${card.user_id}:`, balanceError);
+              }
+            } else {
+              console.error(`Failed to get profile for user ${card.user_id}:`, profileError);
+            }
+          }
+        }
+      }
+
+      // 删除所有关联的卡密
+      const { error: deleteCardsError } = await supabase
+        .from('card_keys')
+        .delete()
+        .eq('program_id', programId);
+
+      if (deleteCardsError) {
+        console.error('Error deleting associated card keys:', deleteCardsError);
         return new Response(
-          JSON.stringify({ 
-            error: `无法删除程序，还有 ${activeCards.length} 个关联的有效卡密。请先删除或处理相关卡密。` 
-          }), 
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: '删除关联卡密失败' }), 
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
+      console.log(`Deleted ${cardKeysData.length} card keys, refunded ${refundedCards} cards with total amount ${totalRefunded}`);
     }
 
     // 删除程序相关的代理权限
@@ -188,7 +277,12 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: '程序删除成功'
+        message: '程序删除成功',
+        details: {
+          deletedCards: cardKeysData?.length || 0,
+          refundedCards: refundedCards,
+          totalRefunded: totalRefunded
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
