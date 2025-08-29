@@ -184,7 +184,10 @@ const Programs = () => {
       console.log('Attempting to delete program:', programId);
       
       const { data, error } = await supabase.functions.invoke('delete-program', {
-        body: { programId }
+        body: { programId },
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        }
       });
 
       console.log('Delete response:', { data, error });
@@ -192,7 +195,7 @@ const Programs = () => {
       if (error) {
         console.error('Function invocation error:', error);
         toast({
-          title: "删除失败",
+          title: "删除失败", 
           description: error.message || "调用删除函数失败",
           variant: "destructive",
         });

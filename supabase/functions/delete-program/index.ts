@@ -129,6 +129,8 @@ serve(async (req) => {
       .select('id, status')
       .eq('program_id', programId);
 
+    console.log('Card keys check:', { cardKeysData, cardKeysError });
+
     if (cardKeysError) {
       console.error('Error checking card keys:', cardKeysError);
       return new Response(
@@ -140,10 +142,13 @@ serve(async (req) => {
     // 如果有关联的卡密，不允许删除
     if (cardKeysData && cardKeysData.length > 0) {
       const activeCards = cardKeysData.filter(card => card.status === 'unused' || card.status === 'used');
+      console.log('Active cards found:', activeCards.length, 'out of', cardKeysData.length);
+      
       if (activeCards.length > 0) {
+        console.log('Cannot delete program due to active cards');
         return new Response(
           JSON.stringify({ 
-            error: `无法删除程序，还有 ${activeCards.length} 个关联的有效卡密。请先处理相关卡密。` 
+            error: `无法删除程序，还有 ${activeCards.length} 个关联的有效卡密。请先删除或处理相关卡密。` 
           }), 
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
