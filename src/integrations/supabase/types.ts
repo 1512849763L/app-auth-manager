@@ -411,6 +411,10 @@ export type Database = {
         }
         Returns: Json
       }
+      bind_machine_simple: {
+        Args: { p_card_key: string; p_machine_code: string }
+        Returns: Json
+      }
       generate_card_key: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -454,6 +458,10 @@ export type Database = {
       }
       use_recharge_card: {
         Args: { card_code: string }
+        Returns: Json
+      }
+      verify_card_key_simple: {
+        Args: { p_card_key: string }
         Returns: Json
       }
       verify_card_key_with_machine: {
