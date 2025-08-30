@@ -19,7 +19,17 @@ const Docs = () => {
     });
   };
 
-  const baseUrl = "https://sqcvacdpdjeooqyrblbu.supabase.co";
+  // 动态获取当前域名并生成API基础URL
+  const getCurrentDomain = () => {
+    if (typeof window !== 'undefined') {
+      return window.location.origin.includes('lovable.dev') 
+        ? "https://sqcvacdpdjeooqyrblbu.supabase.co"
+        : "https://sqcvacdpdjeooqyrblbu.supabase.co"; // 可以根据需要修改生产环境URL
+    }
+    return "https://sqcvacdpdjeooqyrblbu.supabase.co";
+  };
+
+  const baseUrl = getCurrentDomain();
 
   return (
     <Layout>
@@ -159,23 +169,28 @@ Content-Type: application/json`)}
             <Card>
               <CardHeader>
                 <CardTitle>API接口列表</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  API基础URL: <code className="bg-muted px-1 rounded">{baseUrl}</code>
+                </p>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* 卡密验证 */}
+                {/* 简化卡密验证 */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Badge>POST</Badge>
-                    <code className="text-sm">/rest/v1/rpc/verify_card_key_with_machine</code>
+                    <code className="text-sm">verify_card_key_simple</code>
                   </div>
-                  <p className="text-sm text-muted-foreground">验证卡密并绑定机器码</p>
+                  <p className="text-sm text-muted-foreground">验证卡密（简化版本，只需要卡密）</p>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">请求URL：</h4>
+                    <code className="text-xs bg-muted p-2 rounded block">{baseUrl}/rest/v1/rpc/verify_card_key_simple</code>
+                  </div>
                   <div className="space-y-2">
                     <h4 className="font-medium text-sm">请求参数：</h4>
                     <div className="relative">
                       <pre className="bg-muted p-3 rounded-lg text-sm overflow-x-auto">
                         <code>{`{
-  "p_card_key": "XXXX-XXXX-XXXX-XXXX",
-  "p_machine_code": "MACHINE-CODE-123",
-  "p_program_id": "program-uuid"
+  "p_card_key": "XXXX-XXXX-XXXX-XXXX"
 }`}</code>
                       </pre>
                       <Button
@@ -183,9 +198,7 @@ Content-Type: application/json`)}
                         size="sm"
                         className="absolute top-2 right-2"
                         onClick={() => copyToClipboard(`{
-  "p_card_key": "XXXX-XXXX-XXXX-XXXX",
-  "p_machine_code": "MACHINE-CODE-123",
-  "p_program_id": "program-uuid"
+  "p_card_key": "XXXX-XXXX-XXXX-XXXX"
 }`)}
                       >
                         <Copy className="h-4 w-4" />
@@ -202,7 +215,10 @@ Content-Type: application/json`)}
   "valid": true,
   "expire_at": "2024-12-31T23:59:59Z",
   "used_machines": 1,
-  "max_machines": 3
+  "max_machines": 3,
+  "program_id": "program-uuid",
+  "program_name": "程序名称",
+  "duration_days": 30
 }`}</code>
                       </pre>
                       <Button
@@ -215,6 +231,72 @@ Content-Type: application/json`)}
   "valid": true,
   "expire_at": "2024-12-31T23:59:59Z",
   "used_machines": 1,
+  "max_machines": 3,
+  "program_id": "program-uuid",
+  "program_name": "程序名称",
+  "duration_days": 30
+}`)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* 简化机器码绑定 */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Badge>POST</Badge>
+                    <code className="text-sm">bind_machine_simple</code>
+                  </div>
+                  <p className="text-sm text-muted-foreground">绑定机器码（简化版本，只需要卡密和机器码）</p>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">请求URL：</h4>
+                    <code className="text-xs bg-muted p-2 rounded block">{baseUrl}/rest/v1/rpc/bind_machine_simple</code>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">请求参数：</h4>
+                    <div className="relative">
+                      <pre className="bg-muted p-3 rounded-lg text-sm overflow-x-auto">
+                        <code>{`{
+  "p_card_key": "XXXX-XXXX-XXXX-XXXX",
+  "p_machine_code": "MACHINE-CODE-123"
+}`}</code>
+                      </pre>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => copyToClipboard(`{
+  "p_card_key": "XXXX-XXXX-XXXX-XXXX",
+  "p_machine_code": "MACHINE-CODE-123"
+}`)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">响应示例：</h4>
+                    <div className="relative">
+                      <pre className="bg-muted p-3 rounded-lg text-sm overflow-x-auto">
+                        <code>{`{
+  "success": true,
+  "message": "机器码绑定成功",
+  "used_machines": 1,
+  "max_machines": 3
+}`}</code>
+                      </pre>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => copyToClipboard(`{
+  "success": true,
+  "message": "机器码绑定成功",
+  "used_machines": 1,
   "max_machines": 3
 }`)}
                       >
@@ -226,70 +308,55 @@ Content-Type: application/json`)}
 
                 <Separator />
 
-                {/* 机器码绑定 */}
+                {/* 传统API（向后兼容） */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Badge>POST</Badge>
-                    <code className="text-sm">/rest/v1/rpc/bind_machine_code</code>
-                  </div>
-                  <p className="text-sm text-muted-foreground">为卡密绑定新的机器码</p>
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm">请求参数：</h4>
-                    <div className="relative">
-                      <pre className="bg-muted p-3 rounded-lg text-sm overflow-x-auto">
-                        <code>{`{
+                  <h3 className="font-semibold text-base">传统API（向后兼容）</h3>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">POST</Badge>
+                      <code className="text-sm">verify_card_key_with_machine</code>
+                    </div>
+                    <p className="text-sm text-muted-foreground">验证卡密并绑定机器码（需要程序ID）</p>
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">请求URL：</h4>
+                      <code className="text-xs bg-muted p-2 rounded block">{baseUrl}/rest/v1/rpc/verify_card_key_with_machine</code>
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">请求参数：</h4>
+                      <div className="relative">
+                        <pre className="bg-muted p-3 rounded-lg text-sm overflow-x-auto">
+                          <code>{`{
   "p_card_key": "XXXX-XXXX-XXXX-XXXX",
-  "p_machine_code": "MACHINE-CODE-456", 
+  "p_machine_code": "MACHINE-CODE-123",
   "p_program_id": "program-uuid"
 }`}</code>
-                      </pre>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute top-2 right-2"
-                        onClick={() => copyToClipboard(`{
+                        </pre>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={() => copyToClipboard(`{
   "p_card_key": "XXXX-XXXX-XXXX-XXXX",
-  "p_machine_code": "MACHINE-CODE-456",
+  "p_machine_code": "MACHINE-CODE-123",
   "p_program_id": "program-uuid"
 }`)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <Separator />
-
-                {/* 卡密生成 */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Badge>POST</Badge>
-                    <code className="text-sm">/rest/v1/card_keys</code>
-                  </div>
-                  <p className="text-sm text-muted-foreground">生成新的卡密</p>
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm">请求参数：</h4>
-                    <div className="relative">
-                      <pre className="bg-muted p-3 rounded-lg text-sm overflow-x-auto">
-                        <code>{`{
-  "program_id": "program-uuid",
-  "duration_days": 30,
-  "quantity": 1
-}`}</code>
-                      </pre>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute top-2 right-2"
-                        onClick={() => copyToClipboard(`{
-  "program_id": "program-uuid",
-  "duration_days": 30,
-  "quantity": 1
-}`)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">POST</Badge>
+                      <code className="text-sm">bind_machine_code</code>
+                    </div>
+                    <p className="text-sm text-muted-foreground">绑定机器码（需要程序ID）</p>
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">请求URL：</h4>
+                      <code className="text-xs bg-muted p-2 rounded block">{baseUrl}/rest/v1/rpc/bind_machine_code</code>
                     </div>
                   </div>
                 </div>
@@ -312,13 +379,14 @@ Content-Type: application/json`)}
                     <CardTitle>JavaScript 示例</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       <div>
-                        <h3 className="font-semibold mb-2">验证卡密</h3>
+                        <h3 className="font-semibold mb-2">简化验证卡密（推荐）</h3>
                         <div className="relative">
                            <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">
-                             <code>{`async function verifyCardKeyWithMachine(cardKey, machineCode, programId) {
-  const response = await fetch('${baseUrl}/rest/v1/rpc/verify_card_key_with_machine', {
+                             <code>{`// verifyCardKeySimple - 只需要卡密验证
+async function verifyCardKeySimple(cardKey) {
+  const response = await fetch('${baseUrl}/rest/v1/rpc/verify_card_key_simple', {
     method: 'POST',
     headers: {
       'Authorization': 'Bearer YOUR_API_KEY',
@@ -326,19 +394,19 @@ Content-Type: application/json`)}
       'apikey': 'YOUR_ANON_KEY'
     },
     body: JSON.stringify({
-      p_card_key: cardKey,
-      p_machine_code: machineCode,
-      p_program_id: programId
+      p_card_key: cardKey
     })
   });
 
   const result = await response.json();
   
   if (result.success && result.valid) {
-    console.log('卡密验证成功，机器码已绑定');
+    console.log('卡密验证成功');
+    console.log('程序名称:', result.program_name);
     console.log('已使用机器数:', result.used_machines);
     console.log('最大机器数:', result.max_machines);
-    return true;
+    console.log('到期时间:', result.expire_at);
+    return result;
   } else {
     console.log('验证失败:', result.message);
     return false;
@@ -346,14 +414,56 @@ Content-Type: application/json`)}
 }
 
 // 使用示例
-verifyCardKeyWithMachine('XXXX-XXXX-XXXX-XXXX', 'MACHINE-CODE-123', 'program-uuid');`}</code>
+verifyCardKeySimple('XXXX-XXXX-XXXX-XXXX');`}</code>
                            </pre>
                            <Button
                              variant="ghost"
                              size="sm"
                              className="absolute top-2 right-2"
-                             onClick={() => copyToClipboard(`async function verifyCardKeyWithMachine(cardKey, machineCode, programId) {
-  const response = await fetch('${baseUrl}/rest/v1/rpc/verify_card_key_with_machine', {
+                             onClick={() => copyToClipboard(`// verifyCardKeySimple - 只需要卡密验证
+async function verifyCardKeySimple(cardKey) {
+  const response = await fetch('${baseUrl}/rest/v1/rpc/verify_card_key_simple', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer YOUR_API_KEY',
+      'Content-Type': 'application/json',
+      'apikey': 'YOUR_ANON_KEY'
+    },
+    body: JSON.stringify({
+      p_card_key: cardKey
+    })
+  });
+
+  const result = await response.json();
+  
+  if (result.success && result.valid) {
+    console.log('卡密验证成功');
+    console.log('程序名称:', result.program_name);
+    console.log('已使用机器数:', result.used_machines);
+    console.log('最大机器数:', result.max_machines);
+    console.log('到期时间:', result.expire_at);
+    return result;
+  } else {
+    console.log('验证失败:', result.message);
+    return false;
+  }
+}
+
+// 使用示例
+verifyCardKeySimple('XXXX-XXXX-XXXX-XXXX');`)}
+                           >
+                             <Copy className="h-4 w-4" />
+                           </Button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 className="font-semibold mb-2">简化机器码绑定（推荐）</h3>
+                        <div className="relative">
+                           <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">
+                             <code>{`// bindMachineSimple - 只需要卡密和机器码
+async function bindMachineSimple(cardKey, machineCode) {
+  const response = await fetch('${baseUrl}/rest/v1/rpc/bind_machine_simple', {
     method: 'POST',
     headers: {
       'Authorization': 'Bearer YOUR_API_KEY',
@@ -362,26 +472,60 @@ verifyCardKeyWithMachine('XXXX-XXXX-XXXX-XXXX', 'MACHINE-CODE-123', 'program-uui
     },
     body: JSON.stringify({
       p_card_key: cardKey,
-      p_machine_code: machineCode,
-      p_program_id: programId
+      p_machine_code: machineCode
     })
   });
 
   const result = await response.json();
   
-  if (result.success && result.valid) {
-    console.log('卡密验证成功，机器码已绑定');
+  if (result.success) {
+    console.log('机器码绑定成功');
     console.log('已使用机器数:', result.used_machines);
     console.log('最大机器数:', result.max_machines);
-    return true;
+    return result;
   } else {
-    console.log('验证失败:', result.message);
+    console.log('绑定失败:', result.message);
     return false;
   }
 }
 
 // 使用示例
-verifyCardKeyWithMachine('XXXX-XXXX-XXXX-XXXX', 'MACHINE-CODE-123', 'program-uuid');`)}
+bindMachineSimple('XXXX-XXXX-XXXX-XXXX', 'MACHINE-CODE-123');`}</code>
+                           </pre>
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             className="absolute top-2 right-2"
+                             onClick={() => copyToClipboard(`// bindMachineSimple - 只需要卡密和机器码
+async function bindMachineSimple(cardKey, machineCode) {
+  const response = await fetch('${baseUrl}/rest/v1/rpc/bind_machine_simple', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer YOUR_API_KEY',
+      'Content-Type': 'application/json',
+      'apikey': 'YOUR_ANON_KEY'
+    },
+    body: JSON.stringify({
+      p_card_key: cardKey,
+      p_machine_code: machineCode
+    })
+  });
+
+  const result = await response.json();
+  
+  if (result.success) {
+    console.log('机器码绑定成功');
+    console.log('已使用机器数:', result.used_machines);
+    console.log('最大机器数:', result.max_machines);
+    return result;
+  } else {
+    console.log('绑定失败:', result.message);
+    return false;
+  }
+}
+
+// 使用示例
+bindMachineSimple('XXXX-XXXX-XXXX-XXXX', 'MACHINE-CODE-123');`)}
                            >
                              <Copy className="h-4 w-4" />
                            </Button>
@@ -398,38 +542,42 @@ verifyCardKeyWithMachine('XXXX-XXXX-XXXX-XXXX', 'MACHINE-CODE-123', 'program-uui
                     <CardTitle>Python 示例</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       <div>
-                        <h3 className="font-semibold mb-2">验证卡密</h3>
+                        <h3 className="font-semibold mb-2">简化验证卡密（推荐）</h3>
                         <div className="relative">
                           <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">
                             <code>{`import requests
 import json
 
-def verify_card_key(card_key, program_id):
-    url = "${baseUrl}/rest/v1/rpc/verify_card_key"
+def verify_card_key_simple(card_key):
+    """简化验证卡密 - 只需要卡密"""
+    url = "${baseUrl}/rest/v1/rpc/verify_card_key_simple"
     headers = {
         'Authorization': 'Bearer YOUR_API_KEY',
         'Content-Type': 'application/json',
         'apikey': 'YOUR_ANON_KEY'
     }
     data = {
-        'card_key': card_key,
-        'program_id': program_id
+        'p_card_key': card_key
     }
     
     response = requests.post(url, headers=headers, json=data)
     result = response.json()
     
-    if result.get('success') and result.get('data', {}).get('valid'):
+    if result.get('success') and result.get('valid'):
         print("卡密验证成功")
-        return True
+        print(f"程序名称: {result.get('program_name')}")
+        print(f"已使用机器数: {result.get('used_machines')}")
+        print(f"最大机器数: {result.get('max_machines')}")
+        print(f"到期时间: {result.get('expire_at')}")
+        return result
     else:
-        print("卡密验证失败")
+        print(f"验证失败: {result.get('message')}")
         return False
 
 # 使用示例
-verify_card_key("XXXX-XXXX-XXXX-XXXX", "program-uuid")`}</code>
+verify_card_key_simple("XXXX-XXXX-XXXX-XXXX")`}</code>
                           </pre>
                           <Button
                             variant="ghost"
@@ -438,30 +586,103 @@ verify_card_key("XXXX-XXXX-XXXX-XXXX", "program-uuid")`}</code>
                             onClick={() => copyToClipboard(`import requests
 import json
 
-def verify_card_key(card_key, program_id):
-    url = "${baseUrl}/rest/v1/rpc/verify_card_key"
+def verify_card_key_simple(card_key):
+    """简化验证卡密 - 只需要卡密"""
+    url = "${baseUrl}/rest/v1/rpc/verify_card_key_simple"
     headers = {
         'Authorization': 'Bearer YOUR_API_KEY',
         'Content-Type': 'application/json',
         'apikey': 'YOUR_ANON_KEY'
     }
     data = {
-        'card_key': card_key,
-        'program_id': program_id
+        'p_card_key': card_key
     }
     
     response = requests.post(url, headers=headers, json=data)
     result = response.json()
     
-    if result.get('success') and result.get('data', {}).get('valid'):
+    if result.get('success') and result.get('valid'):
         print("卡密验证成功")
-        return True
+        print(f"程序名称: {result.get('program_name')}")
+        print(f"已使用机器数: {result.get('used_machines')}")
+        print(f"最大机器数: {result.get('max_machines')}")
+        print(f"到期时间: {result.get('expire_at')}")
+        return result
     else:
-        print("卡密验证失败")
+        print(f"验证失败: {result.get('message')}")
         return False
 
 # 使用示例
-verify_card_key("XXXX-XXXX-XXXX-XXXX", "program-uuid")`)}
+verify_card_key_simple("XXXX-XXXX-XXXX-XXXX")`)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 className="font-semibold mb-2">简化机器码绑定（推荐）</h3>
+                        <div className="relative">
+                          <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">
+                            <code>{`def bind_machine_simple(card_key, machine_code):
+    """简化机器码绑定 - 只需要卡密和机器码"""
+    url = "${baseUrl}/rest/v1/rpc/bind_machine_simple"
+    headers = {
+        'Authorization': 'Bearer YOUR_API_KEY',
+        'Content-Type': 'application/json',
+        'apikey': 'YOUR_ANON_KEY'
+    }
+    data = {
+        'p_card_key': card_key,
+        'p_machine_code': machine_code
+    }
+    
+    response = requests.post(url, headers=headers, json=data)
+    result = response.json()
+    
+    if result.get('success'):
+        print("机器码绑定成功")
+        print(f"已使用机器数: {result.get('used_machines')}")
+        print(f"最大机器数: {result.get('max_machines')}")
+        return result
+    else:
+        print(f"绑定失败: {result.get('message')}")
+        return False
+
+# 使用示例
+bind_machine_simple("XXXX-XXXX-XXXX-XXXX", "MACHINE-CODE-123")`}</code>
+                          </pre>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute top-2 right-2"
+                            onClick={() => copyToClipboard(`def bind_machine_simple(card_key, machine_code):
+    """简化机器码绑定 - 只需要卡密和机器码"""
+    url = "${baseUrl}/rest/v1/rpc/bind_machine_simple"
+    headers = {
+        'Authorization': 'Bearer YOUR_API_KEY',
+        'Content-Type': 'application/json',
+        'apikey': 'YOUR_ANON_KEY'
+    }
+    data = {
+        'p_card_key': card_key,
+        'p_machine_code': machine_code
+    }
+    
+    response = requests.post(url, headers=headers, json=data)
+    result = response.json()
+    
+    if result.get('success'):
+        print("机器码绑定成功")
+        print(f"已使用机器数: {result.get('used_machines')}")
+        print(f"最大机器数: {result.get('max_machines')}")
+        return result
+    else:
+        print(f"绑定失败: {result.get('message')}")
+        return False
+
+# 使用示例
+bind_machine_simple("XXXX-XXXX-XXXX-XXXX", "MACHINE-CODE-123")`)}
                           >
                             <Copy className="h-4 w-4" />
                           </Button>
