@@ -55,6 +55,41 @@ export type Database = {
           },
         ]
       }
+      api_credentials: {
+        Row: {
+          created_at: string
+          id: string
+          private_key: string
+          program_id: string
+          public_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          private_key: string
+          program_id: string
+          public_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          private_key?: string
+          program_id?: string
+          public_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_credentials_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: true
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       balance_records: {
         Row: {
           amount: number
@@ -412,7 +447,13 @@ export type Database = {
         Returns: Json
       }
       bind_machine_simple: {
-        Args: { p_card_key: string; p_machine_code: string }
+        Args:
+          | { p_card_key: string; p_machine_code: string }
+          | { p_card_key: string; p_machine_code: string; p_public_key: string }
+        Returns: Json
+      }
+      generate_api_credentials: {
+        Args: { p_program_id: string }
         Returns: Json
       }
       generate_card_key: {
@@ -470,6 +511,10 @@ export type Database = {
           p_machine_code: string
           p_program_id: string
         }
+        Returns: Json
+      }
+      verify_card_simple: {
+        Args: { p_card_key: string; p_public_key: string }
         Returns: Json
       }
     }
