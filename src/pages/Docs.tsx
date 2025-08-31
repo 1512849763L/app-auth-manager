@@ -123,42 +123,87 @@ const Docs = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Key className="h-5 w-5" />
-                  API认证
+                  独立API认证系统
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-muted-foreground">
-                  所有API请求都需要在请求头中包含您的API密钥进行认证。
-                </p>
+                <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <h3 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">🔐 全新独立认证</h3>
+                  <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                    本系统使用独立的公私钥认证，完全脱离传统API Key方式。本地软件只需填写卡密即可直接验证，无需程序UUID或其他复杂认证流程。
+                  </p>
+                </div>
 
                 <div className="space-y-4">
                   <div>
-                    <h3 className="font-semibold mb-2">获取API密钥</h3>
+                    <h3 className="font-semibold mb-2">认证流程</h3>
+                    <div className="space-y-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs">1</span>
+                        <span>本地软件调用验证API，只需提供：<strong>卡密 + 公钥</strong></span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs">2</span>
+                        <span>系统验证公钥有效性，自动识别对应程序</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs">3</span>
+                        <span>验证卡密是否属于该程序且未过期</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs">4</span>
+                        <span>返回验证结果和程序信息</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold mb-2">获取API密钥对</h3>
                     <p className="text-sm text-muted-foreground mb-3">
                       1. 登录管理控制台<br/>
                       2. 进入"程序管理"页面<br/>
-                      3. 创建或查看程序详情<br/>
-                      4. 复制API密钥
+                      3. 查看程序详情，获取公钥用于API调用<br/>
+                      4. 私钥请妥善保管，仅用于内部验证
                     </p>
                   </div>
 
                   <div>
-                    <h3 className="font-semibold mb-2">请求头格式</h3>
+                    <h3 className="font-semibold mb-2">API调用格式</h3>
                     <div className="relative">
                       <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">
-                        <code>{`Authorization: Bearer YOUR_API_KEY
-Content-Type: application/json`}</code>
+                        <code>{`POST ${baseUrl}/rest/v1/rpc/verify_card_simple
+Content-Type: application/json
+
+{
+  "p_card_key": "XXXX-XXXX-XXXX-XXXX",
+  "p_public_key": "PUBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+}`}</code>
                       </pre>
                       <Button
                         variant="ghost"
                         size="sm"
                         className="absolute top-2 right-2"
-                        onClick={() => copyToClipboard(`Authorization: Bearer YOUR_API_KEY
-Content-Type: application/json`)}
+                        onClick={() => copyToClipboard(`POST ${baseUrl}/rest/v1/rpc/verify_card_simple
+Content-Type: application/json
+
+{
+  "p_card_key": "XXXX-XXXX-XXXX-XXXX",
+  "p_public_key": "PUBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+}`)}
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
                     </div>
+                  </div>
+
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">✅ 安全优势</h4>
+                    <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
+                      <li>• 无需存储敏感API Key在客户端</li>
+                      <li>• 公钥可安全分发，私钥仅服务端持有</li>
+                      <li>• 卡密绑定特定程序，防止跨程序滥用</li>
+                      <li>• 独立认证系统，不依赖外部服务</li>
+                    </ul>
                   </div>
                 </div>
               </CardContent>
@@ -174,23 +219,33 @@ Content-Type: application/json`)}
                 </p>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* 简化卡密验证 */}
+                {/* 新的独立认证API */}
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">🚀 新版独立API（推荐）</h3>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    基于公私钥认证，只需卡密即可验证，无需程序UUID。更安全、更简单。
+                  </p>
+                </div>
+
+                {/* 卡密验证 - 新版 */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <Badge>POST</Badge>
-                    <code className="text-sm">verify_card_key_simple</code>
+                    <Badge className="bg-green-600">POST</Badge>
+                    <code className="text-sm font-semibold">verify_card_simple</code>
+                    <Badge variant="outline" className="text-xs">新版</Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">验证卡密（简化版本，只需要卡密）</p>
+                  <p className="text-sm text-muted-foreground">卡密验证（独立认证，仅需卡密+公钥）</p>
                   <div className="space-y-2">
                     <h4 className="font-medium text-sm">请求URL：</h4>
-                    <code className="text-xs bg-muted p-2 rounded block">{baseUrl}/rest/v1/rpc/verify_card_key_simple</code>
+                    <code className="text-xs bg-muted p-2 rounded block">{baseUrl}/rest/v1/rpc/verify_card_simple</code>
                   </div>
                   <div className="space-y-2">
                     <h4 className="font-medium text-sm">请求参数：</h4>
                     <div className="relative">
                       <pre className="bg-muted p-3 rounded-lg text-sm overflow-x-auto">
                         <code>{`{
-  "p_card_key": "XXXX-XXXX-XXXX-XXXX"
+  "p_card_key": "XXXX-XXXX-XXXX-XXXX",
+  "p_public_key": "PUBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 }`}</code>
                       </pre>
                       <Button
@@ -198,7 +253,8 @@ Content-Type: application/json`)}
                         size="sm"
                         className="absolute top-2 right-2"
                         onClick={() => copyToClipboard(`{
-  "p_card_key": "XXXX-XXXX-XXXX-XXXX"
+  "p_card_key": "XXXX-XXXX-XXXX-XXXX",
+  "p_public_key": "PUBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 }`)}
                       >
                         <Copy className="h-4 w-4" />
@@ -245,13 +301,14 @@ Content-Type: application/json`)}
 
                 <Separator />
 
-                {/* 简化机器码绑定 */}
+                {/* 机器码绑定 - 新版 */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <Badge>POST</Badge>
-                    <code className="text-sm">bind_machine_simple</code>
+                    <Badge className="bg-green-600">POST</Badge>
+                    <code className="text-sm font-semibold">bind_machine_simple</code>
+                    <Badge variant="outline" className="text-xs">新版</Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">绑定机器码（简化版本，只需要卡密和机器码）</p>
+                  <p className="text-sm text-muted-foreground">机器码绑定（独立认证，仅需卡密+机器码+公钥）</p>
                   <div className="space-y-2">
                     <h4 className="font-medium text-sm">请求URL：</h4>
                     <code className="text-xs bg-muted p-2 rounded block">{baseUrl}/rest/v1/rpc/bind_machine_simple</code>
@@ -262,7 +319,8 @@ Content-Type: application/json`)}
                       <pre className="bg-muted p-3 rounded-lg text-sm overflow-x-auto">
                         <code>{`{
   "p_card_key": "XXXX-XXXX-XXXX-XXXX",
-  "p_machine_code": "MACHINE-CODE-123"
+  "p_machine_code": "MACHINE-CODE-123",
+  "p_public_key": "PUBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 }`}</code>
                       </pre>
                       <Button
@@ -271,7 +329,8 @@ Content-Type: application/json`)}
                         className="absolute top-2 right-2"
                         onClick={() => copyToClipboard(`{
   "p_card_key": "XXXX-XXXX-XXXX-XXXX",
-  "p_machine_code": "MACHINE-CODE-123"
+  "p_machine_code": "MACHINE-CODE-123",
+  "p_public_key": "PUBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 }`)}
                       >
                         <Copy className="h-4 w-4" />
@@ -308,56 +367,52 @@ Content-Type: application/json`)}
 
                 <Separator />
 
-                {/* 传统API（向后兼容） */}
-                <div className="space-y-3">
-                  <h3 className="font-semibold text-base">传统API（向后兼容）</h3>
+                {/* 废弃的旧版API */}
+                <div className="space-y-3 opacity-60">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="destructive" className="text-xs">已废弃</Badge>
+                    <h3 className="font-semibold text-base">旧版API（不推荐使用）</h3>
+                  </div>
+                  <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                    <p className="text-sm text-orange-700 dark:text-orange-300">
+                      ⚠️ 以下API已废弃，建议迁移至新版独立认证API。旧版API仍可使用但不再维护更新。
+                    </p>
+                  </div>
                   
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <Badge variant="outline">POST</Badge>
-                      <code className="text-sm">verify_card_key_with_machine</code>
+                      <code className="text-sm line-through">verify_card_key_simple</code>
+                      <Badge variant="destructive" className="text-xs">废弃</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground">验证卡密并绑定机器码（需要程序ID）</p>
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-sm">请求URL：</h4>
-                      <code className="text-xs bg-muted p-2 rounded block">{baseUrl}/rest/v1/rpc/verify_card_key_with_machine</code>
-                    </div>
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-sm">请求参数：</h4>
-                      <div className="relative">
-                        <pre className="bg-muted p-3 rounded-lg text-sm overflow-x-auto">
-                          <code>{`{
-  "p_card_key": "XXXX-XXXX-XXXX-XXXX",
-  "p_machine_code": "MACHINE-CODE-123",
-  "p_program_id": "program-uuid"
-}`}</code>
-                        </pre>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="absolute top-2 right-2"
-                          onClick={() => copyToClipboard(`{
-  "p_card_key": "XXXX-XXXX-XXXX-XXXX",
-  "p_machine_code": "MACHINE-CODE-123",
-  "p_program_id": "program-uuid"
-}`)}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+                    <p className="text-sm text-muted-foreground">旧版简化验证（缺少安全认证）</p>
                   </div>
 
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <Badge variant="outline">POST</Badge>
-                      <code className="text-sm">bind_machine_code</code>
+                      <code className="text-sm line-through">bind_machine_simple</code>
+                      <Badge variant="destructive" className="text-xs">废弃</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">旧版简化绑定（缺少安全认证）</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">POST</Badge>
+                      <code className="text-sm line-through">verify_card_key_with_machine</code>
+                      <Badge variant="destructive" className="text-xs">废弃</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">验证卡密并绑定机器码（需要程序ID）</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">POST</Badge>
+                      <code className="text-sm line-through">bind_machine_code</code>
+                      <Badge variant="destructive" className="text-xs">废弃</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">绑定机器码（需要程序ID）</p>
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-sm">请求URL：</h4>
-                      <code className="text-xs bg-muted p-2 rounded block">{baseUrl}/rest/v1/rpc/bind_machine_code</code>
-                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -381,20 +436,19 @@ Content-Type: application/json`)}
                   <CardContent>
                     <div className="space-y-6">
                       <div>
-                        <h3 className="font-semibold mb-2">简化验证卡密（推荐）</h3>
+                        <h3 className="font-semibold mb-2">🚀 新版独立认证（推荐）</h3>
                         <div className="relative">
                            <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">
-                             <code>{`// verifyCardKeySimple - 只需要卡密验证
-async function verifyCardKeySimple(cardKey) {
-  const response = await fetch('${baseUrl}/rest/v1/rpc/verify_card_key_simple', {
+                             <code>{`// verifyCardSimple - 独立认证，仅需卡密+公钥
+async function verifyCardSimple(cardKey, publicKey) {
+  const response = await fetch('${baseUrl}/rest/v1/rpc/verify_card_simple', {
     method: 'POST',
     headers: {
-      'Authorization': 'Bearer YOUR_API_KEY',
-      'Content-Type': 'application/json',
-      'apikey': 'YOUR_ANON_KEY'
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      p_card_key: cardKey
+      p_card_key: cardKey,
+      p_public_key: publicKey
     })
   });
 
@@ -413,24 +467,52 @@ async function verifyCardKeySimple(cardKey) {
   }
 }
 
+// bindMachineSimple - 独立认证，仅需卡密+机器码+公钥
+async function bindMachineSimple(cardKey, machineCode, publicKey) {
+  const response = await fetch('${baseUrl}/rest/v1/rpc/bind_machine_simple', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      p_card_key: cardKey,
+      p_machine_code: machineCode,
+      p_public_key: publicKey
+    })
+  });
+
+  const result = await response.json();
+  
+  if (result.success) {
+    console.log('机器码绑定成功');
+    console.log('已使用机器数:', result.used_machines);
+    console.log('最大机器数:', result.max_machines);
+    return result;
+  } else {
+    console.log('绑定失败:', result.message);
+    return false;
+  }
+}
+
 // 使用示例
-verifyCardKeySimple('XXXX-XXXX-XXXX-XXXX');`}</code>
+const publicKey = 'PUBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'; // 从程序管理页面获取
+verifyCardSimple('XXXX-XXXX-XXXX-XXXX', publicKey);
+bindMachineSimple('XXXX-XXXX-XXXX-XXXX', 'MACHINE-CODE-123', publicKey);`}</code>
                            </pre>
                            <Button
                              variant="ghost"
                              size="sm"
                              className="absolute top-2 right-2"
-                             onClick={() => copyToClipboard(`// verifyCardKeySimple - 只需要卡密验证
-async function verifyCardKeySimple(cardKey) {
-  const response = await fetch('${baseUrl}/rest/v1/rpc/verify_card_key_simple', {
+                             onClick={() => copyToClipboard(`// verifyCardSimple - 独立认证，仅需卡密+公钥
+async function verifyCardSimple(cardKey, publicKey) {
+  const response = await fetch('${baseUrl}/rest/v1/rpc/verify_card_simple', {
     method: 'POST',
     headers: {
-      'Authorization': 'Bearer YOUR_API_KEY',
-      'Content-Type': 'application/json',
-      'apikey': 'YOUR_ANON_KEY'
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      p_card_key: cardKey
+      p_card_key: cardKey,
+      p_public_key: publicKey
     })
   });
 
@@ -449,21 +531,60 @@ async function verifyCardKeySimple(cardKey) {
   }
 }
 
+// bindMachineSimple - 独立认证，仅需卡密+机器码+公钥
+async function bindMachineSimple(cardKey, machineCode, publicKey) {
+  const response = await fetch('${baseUrl}/rest/v1/rpc/bind_machine_simple', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      p_card_key: cardKey,
+      p_machine_code: machineCode,
+      p_public_key: publicKey
+    })
+  });
+
+  const result = await response.json();
+  
+  if (result.success) {
+    console.log('机器码绑定成功');
+    console.log('已使用机器数:', result.used_machines);
+    console.log('最大机器数:', result.max_machines);
+    return result;
+  } else {
+    console.log('绑定失败:', result.message);
+    return false;
+  }
+}
+
 // 使用示例
-verifyCardKeySimple('XXXX-XXXX-XXXX-XXXX');`)}
+const publicKey = 'PUBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'; // 从程序管理页面获取
+verifyCardSimple('XXXX-XXXX-XXXX-XXXX', publicKey);
+bindMachineSimple('XXXX-XXXX-XXXX-XXXX', 'MACHINE-CODE-123', publicKey);`)}
                            >
                              <Copy className="h-4 w-4" />
                            </Button>
                         </div>
                       </div>
 
-                      <div>
-                        <h3 className="font-semibold mb-2">简化机器码绑定（推荐）</h3>
-                        <div className="relative">
-                           <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">
-                             <code>{`// bindMachineSimple - 只需要卡密和机器码
-async function bindMachineSimple(cardKey, machineCode) {
-  const response = await fetch('${baseUrl}/rest/v1/rpc/bind_machine_simple', {
+                      <div className="space-y-3 opacity-60">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="destructive" className="text-xs">已废弃</Badge>
+                          <h3 className="font-semibold text-base">旧版API示例（不推荐）</h3>
+                        </div>
+                        <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                          <p className="text-sm text-orange-700 dark:text-orange-300">
+                            ⚠️ 以下代码使用已废弃的API，建议迁移至新版独立认证API。
+                          </p>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold mb-2 line-through">简化验证卡密（已废弃）</h3>
+                          <div className="relative">
+                             <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto opacity-60">
+                               <code>{`// 已废弃 - verifyCardKeySimple
+async function verifyCardKeySimple(cardKey) {
+  const response = await fetch('${baseUrl}/rest/v1/rpc/verify_card_key_simple', {
     method: 'POST',
     headers: {
       'Authorization': 'Bearer YOUR_API_KEY',
@@ -471,64 +592,13 @@ async function bindMachineSimple(cardKey, machineCode) {
       'apikey': 'YOUR_ANON_KEY'
     },
     body: JSON.stringify({
-      p_card_key: cardKey,
-      p_machine_code: machineCode
+      p_card_key: cardKey
     })
   });
-
-  const result = await response.json();
-  
-  if (result.success) {
-    console.log('机器码绑定成功');
-    console.log('已使用机器数:', result.used_machines);
-    console.log('最大机器数:', result.max_machines);
-    return result;
-  } else {
-    console.log('绑定失败:', result.message);
-    return false;
-  }
-}
-
-// 使用示例
-bindMachineSimple('XXXX-XXXX-XXXX-XXXX', 'MACHINE-CODE-123');`}</code>
-                           </pre>
-                           <Button
-                             variant="ghost"
-                             size="sm"
-                             className="absolute top-2 right-2"
-                             onClick={() => copyToClipboard(`// bindMachineSimple - 只需要卡密和机器码
-async function bindMachineSimple(cardKey, machineCode) {
-  const response = await fetch('${baseUrl}/rest/v1/rpc/bind_machine_simple', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer YOUR_API_KEY',
-      'Content-Type': 'application/json',
-      'apikey': 'YOUR_ANON_KEY'
-    },
-    body: JSON.stringify({
-      p_card_key: cardKey,
-      p_machine_code: machineCode
-    })
-  });
-
-  const result = await response.json();
-  
-  if (result.success) {
-    console.log('机器码绑定成功');
-    console.log('已使用机器数:', result.used_machines);
-    console.log('最大机器数:', result.max_machines);
-    return result;
-  } else {
-    console.log('绑定失败:', result.message);
-    return false;
-  }
-}
-
-// 使用示例
-bindMachineSimple('XXXX-XXXX-XXXX-XXXX', 'MACHINE-CODE-123');`)}
-                           >
-                             <Copy className="h-4 w-4" />
-                           </Button>
+  // ... 其余代码已省略
+}`}</code>
+                             </pre>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -544,22 +614,21 @@ bindMachineSimple('XXXX-XXXX-XXXX-XXXX', 'MACHINE-CODE-123');`)}
                   <CardContent>
                     <div className="space-y-6">
                       <div>
-                        <h3 className="font-semibold mb-2">简化验证卡密（推荐）</h3>
+                        <h3 className="font-semibold mb-2">🚀 新版独立认证（推荐）</h3>
                         <div className="relative">
                           <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">
                             <code>{`import requests
 import json
 
-def verify_card_key_simple(card_key):
-    """简化验证卡密 - 只需要卡密"""
-    url = "${baseUrl}/rest/v1/rpc/verify_card_key_simple"
+def verify_card_simple(card_key, public_key):
+    """独立认证卡密验证 - 仅需卡密+公钥"""
+    url = "${baseUrl}/rest/v1/rpc/verify_card_simple"
     headers = {
-        'Authorization': 'Bearer YOUR_API_KEY',
-        'Content-Type': 'application/json',
-        'apikey': 'YOUR_ANON_KEY'
+        'Content-Type': 'application/json'
     }
     data = {
-        'p_card_key': card_key
+        'p_card_key': card_key,
+        'p_public_key': public_key
     }
     
     response = requests.post(url, headers=headers, json=data)
@@ -576,8 +645,34 @@ def verify_card_key_simple(card_key):
         print(f"验证失败: {result.get('message')}")
         return False
 
+def bind_machine_simple(card_key, machine_code, public_key):
+    """独立认证机器码绑定 - 仅需卡密+机器码+公钥"""
+    url = "${baseUrl}/rest/v1/rpc/bind_machine_simple"
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    data = {
+        'p_card_key': card_key,
+        'p_machine_code': machine_code,
+        'p_public_key': public_key
+    }
+    
+    response = requests.post(url, headers=headers, json=data)
+    result = response.json()
+    
+    if result.get('success'):
+        print("机器码绑定成功")
+        print(f"已使用机器数: {result.get('used_machines')}")
+        print(f"最大机器数: {result.get('max_machines')}")
+        return result
+    else:
+        print(f"绑定失败: {result.get('message')}")
+        return False
+
 # 使用示例
-verify_card_key_simple("XXXX-XXXX-XXXX-XXXX")`}</code>
+public_key = "PUBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"  # 从程序管理页面获取
+verify_card_simple("XXXX-XXXX-XXXX-XXXX", public_key)
+bind_machine_simple("XXXX-XXXX-XXXX-XXXX", "MACHINE-CODE-123", public_key)`}</code>
                           </pre>
                           <Button
                             variant="ghost"
@@ -586,16 +681,15 @@ verify_card_key_simple("XXXX-XXXX-XXXX-XXXX")`}</code>
                             onClick={() => copyToClipboard(`import requests
 import json
 
-def verify_card_key_simple(card_key):
-    """简化验证卡密 - 只需要卡密"""
-    url = "${baseUrl}/rest/v1/rpc/verify_card_key_simple"
+def verify_card_simple(card_key, public_key):
+    """独立认证卡密验证 - 仅需卡密+公钥"""
+    url = "${baseUrl}/rest/v1/rpc/verify_card_simple"
     headers = {
-        'Authorization': 'Bearer YOUR_API_KEY',
-        'Content-Type': 'application/json',
-        'apikey': 'YOUR_ANON_KEY'
+        'Content-Type': 'application/json'
     }
     data = {
-        'p_card_key': card_key
+        'p_card_key': card_key,
+        'p_public_key': public_key
     }
     
     response = requests.post(url, headers=headers, json=data)
@@ -612,80 +706,65 @@ def verify_card_key_simple(card_key):
         print(f"验证失败: {result.get('message')}")
         return False
 
+def bind_machine_simple(card_key, machine_code, public_key):
+    """独立认证机器码绑定 - 仅需卡密+机器码+公钥"""
+    url = "${baseUrl}/rest/v1/rpc/bind_machine_simple"
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    data = {
+        'p_card_key': card_key,
+        'p_machine_code': machine_code,
+        'p_public_key': public_key
+    }
+    
+    response = requests.post(url, headers=headers, json=data)
+    result = response.json()
+    
+    if result.get('success'):
+        print("机器码绑定成功")
+        print(f"已使用机器数: {result.get('used_machines')}")
+        print(f"最大机器数: {result.get('max_machines')}")
+        return result
+    else:
+        print(f"绑定失败: {result.get('message')}")
+        return False
+
 # 使用示例
-verify_card_key_simple("XXXX-XXXX-XXXX-XXXX")`)}
+public_key = "PUBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"  # 从程序管理页面获取
+verify_card_simple("XXXX-XXXX-XXXX-XXXX", public_key)
+bind_machine_simple("XXXX-XXXX-XXXX-XXXX", "MACHINE-CODE-123", public_key)`)}
                           >
                             <Copy className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
 
-                      <div>
-                        <h3 className="font-semibold mb-2">简化机器码绑定（推荐）</h3>
-                        <div className="relative">
-                          <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">
-                            <code>{`def bind_machine_simple(card_key, machine_code):
-    """简化机器码绑定 - 只需要卡密和机器码"""
-    url = "${baseUrl}/rest/v1/rpc/bind_machine_simple"
+                      <div className="space-y-3 opacity-60">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="destructive" className="text-xs">已废弃</Badge>
+                          <h3 className="font-semibold text-base">旧版API示例（不推荐）</h3>
+                        </div>
+                        <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                          <p className="text-sm text-orange-700 dark:text-orange-300">
+                            ⚠️ 以下代码使用已废弃的API，建议迁移至新版独立认证API。
+                          </p>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold mb-2 line-through">简化验证卡密（已废弃）</h3>
+                          <div className="relative">
+                            <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto opacity-60">
+                              <code>{`# 已废弃 - verify_card_key_simple
+def verify_card_key_simple(card_key):
+    url = "${baseUrl}/rest/v1/rpc/verify_card_key_simple"
     headers = {
         'Authorization': 'Bearer YOUR_API_KEY',
         'Content-Type': 'application/json',
         'apikey': 'YOUR_ANON_KEY'
     }
-    data = {
-        'p_card_key': card_key,
-        'p_machine_code': machine_code
-    }
-    
-    response = requests.post(url, headers=headers, json=data)
-    result = response.json()
-    
-    if result.get('success'):
-        print("机器码绑定成功")
-        print(f"已使用机器数: {result.get('used_machines')}")
-        print(f"最大机器数: {result.get('max_machines')}")
-        return result
-    else:
-        print(f"绑定失败: {result.get('message')}")
-        return False
-
-# 使用示例
-bind_machine_simple("XXXX-XXXX-XXXX-XXXX", "MACHINE-CODE-123")`}</code>
-                          </pre>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute top-2 right-2"
-                            onClick={() => copyToClipboard(`def bind_machine_simple(card_key, machine_code):
-    """简化机器码绑定 - 只需要卡密和机器码"""
-    url = "${baseUrl}/rest/v1/rpc/bind_machine_simple"
-    headers = {
-        'Authorization': 'Bearer YOUR_API_KEY',
-        'Content-Type': 'application/json',
-        'apikey': 'YOUR_ANON_KEY'
-    }
-    data = {
-        'p_card_key': card_key,
-        'p_machine_code': machine_code
-    }
-    
-    response = requests.post(url, headers=headers, json=data)
-    result = response.json()
-    
-    if result.get('success'):
-        print("机器码绑定成功")
-        print(f"已使用机器数: {result.get('used_machines')}")
-        print(f"最大机器数: {result.get('max_machines')}")
-        return result
-    else:
-        print(f"绑定失败: {result.get('message')}")
-        return False
-
-# 使用示例
-bind_machine_simple("XXXX-XXXX-XXXX-XXXX", "MACHINE-CODE-123")`)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
+    # ... 其余代码已省略`}</code>
+                            </pre>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -699,22 +778,21 @@ bind_machine_simple("XXXX-XXXX-XXXX-XXXX", "MACHINE-CODE-123")`)}
                     <CardTitle>PHP 示例</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       <div>
-                        <h3 className="font-semibold mb-2">验证卡密</h3>
+                        <h3 className="font-semibold mb-2">🚀 新版独立认证（推荐）</h3>
                         <div className="relative">
                           <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">
                             <code>{`<?php
-function verifyCardKey($cardKey, $programId) {
-    $url = "${baseUrl}/rest/v1/rpc/verify_card_key";
+function verifyCardSimple($cardKey, $publicKey) {
+    // 独立认证卡密验证 - 仅需卡密+公钥
+    $url = "${baseUrl}/rest/v1/rpc/verify_card_simple";
     $headers = array(
-        'Authorization: Bearer YOUR_API_KEY',
-        'Content-Type: application/json',
-        'apikey: YOUR_ANON_KEY'
+        'Content-Type: application/json'
     );
     $data = json_encode(array(
-        'card_key' => $cardKey,
-        'program_id' => $programId
+        'p_card_key' => $cardKey,
+        'p_public_key' => $publicKey
     ));
     
     $ch = curl_init();
@@ -729,17 +807,58 @@ function verifyCardKey($cardKey, $programId) {
     
     $result = json_decode($response, true);
     
-    if ($result['success'] && $result['data']['valid']) {
-        echo "卡密验证成功";
-        return true;
+    if ($result['success'] && $result['valid']) {
+        echo "卡密验证成功\\n";
+        echo "程序名称: " . $result['program_name'] . "\\n";
+        echo "已使用机器数: " . $result['used_machines'] . "\\n";
+        echo "最大机器数: " . $result['max_machines'] . "\\n";
+        echo "到期时间: " . $result['expire_at'] . "\\n";
+        return $result;
     } else {
-        echo "卡密验证失败";
+        echo "验证失败: " . $result['message'] . "\\n";
+        return false;
+    }
+}
+
+function bindMachineSimple($cardKey, $machineCode, $publicKey) {
+    // 独立认证机器码绑定 - 仅需卡密+机器码+公钥
+    $url = "${baseUrl}/rest/v1/rpc/bind_machine_simple";
+    $headers = array(
+        'Content-Type: application/json'
+    );
+    $data = json_encode(array(
+        'p_card_key' => $cardKey,
+        'p_machine_code' => $machineCode,
+        'p_public_key' => $publicKey
+    ));
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    
+    $response = curl_exec($ch);
+    curl_close($ch);
+    
+    $result = json_decode($response, true);
+    
+    if ($result['success']) {
+        echo "机器码绑定成功\\n";
+        echo "已使用机器数: " . $result['used_machines'] . "\\n";
+        echo "最大机器数: " . $result['max_machines'] . "\\n";
+        return $result;
+    } else {
+        echo "绑定失败: " . $result['message'] . "\\n";
         return false;
     }
 }
 
 // 使用示例
-verifyCardKey("XXXX-XXXX-XXXX-XXXX", "program-uuid");
+$publicKey = "PUBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"; // 从程序管理页面获取
+verifyCardSimple("XXXX-XXXX-XXXX-XXXX", $publicKey);
+bindMachineSimple("XXXX-XXXX-XXXX-XXXX", "MACHINE-CODE-123", $publicKey);
 ?>`}</code>
                           </pre>
                           <Button
@@ -747,16 +866,15 @@ verifyCardKey("XXXX-XXXX-XXXX-XXXX", "program-uuid");
                             size="sm"
                             className="absolute top-2 right-2"
                             onClick={() => copyToClipboard(`<?php
-function verifyCardKey($cardKey, $programId) {
-    $url = "${baseUrl}/rest/v1/rpc/verify_card_key";
+function verifyCardSimple($cardKey, $publicKey) {
+    // 独立认证卡密验证 - 仅需卡密+公钥
+    $url = "${baseUrl}/rest/v1/rpc/verify_card_simple";
     $headers = array(
-        'Authorization: Bearer YOUR_API_KEY',
-        'Content-Type: application/json',
-        'apikey: YOUR_ANON_KEY'
+        'Content-Type: application/json'
     );
     $data = json_encode(array(
-        'card_key' => $cardKey,
-        'program_id' => $programId
+        'p_card_key' => $cardKey,
+        'p_public_key' => $publicKey
     ));
     
     $ch = curl_init();
@@ -771,21 +889,91 @@ function verifyCardKey($cardKey, $programId) {
     
     $result = json_decode($response, true);
     
-    if ($result['success'] && $result['data']['valid']) {
-        echo "卡密验证成功";
-        return true;
+    if ($result['success'] && $result['valid']) {
+        echo "卡密验证成功\\n";
+        echo "程序名称: " . $result['program_name'] . "\\n";
+        echo "已使用机器数: " . $result['used_machines'] . "\\n";
+        echo "最大机器数: " . $result['max_machines'] . "\\n";
+        echo "到期时间: " . $result['expire_at'] . "\\n";
+        return $result;
     } else {
-        echo "卡密验证失败";
+        echo "验证失败: " . $result['message'] . "\\n";
+        return false;
+    }
+}
+
+function bindMachineSimple($cardKey, $machineCode, $publicKey) {
+    // 独立认证机器码绑定 - 仅需卡密+机器码+公钥
+    $url = "${baseUrl}/rest/v1/rpc/bind_machine_simple";
+    $headers = array(
+        'Content-Type: application/json'
+    );
+    $data = json_encode(array(
+        'p_card_key' => $cardKey,
+        'p_machine_code' => $machineCode,
+        'p_public_key' => $publicKey
+    ));
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    
+    $response = curl_exec($ch);
+    curl_close($ch);
+    
+    $result = json_decode($response, true);
+    
+    if ($result['success']) {
+        echo "机器码绑定成功\\n";
+        echo "已使用机器数: " . $result['used_machines'] . "\\n";
+        echo "最大机器数: " . $result['max_machines'] . "\\n";
+        return $result;
+    } else {
+        echo "绑定失败: " . $result['message'] . "\\n";
         return false;
     }
 }
 
 // 使用示例
-verifyCardKey("XXXX-XXXX-XXXX-XXXX", "program-uuid");
+$publicKey = "PUBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"; // 从程序管理页面获取
+verifyCardSimple("XXXX-XXXX-XXXX-XXXX", $publicKey);
+bindMachineSimple("XXXX-XXXX-XXXX-XXXX", "MACHINE-CODE-123", $publicKey);
 ?>`)}
                           >
                             <Copy className="h-4 w-4" />
                           </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 opacity-60">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="destructive" className="text-xs">已废弃</Badge>
+                          <h3 className="font-semibold text-base">旧版API示例（不推荐）</h3>
+                        </div>
+                        <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                          <p className="text-sm text-orange-700 dark:text-orange-300">
+                            ⚠️ 以下代码使用已废弃的API，建议迁移至新版独立认证API。
+                          </p>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold mb-2 line-through">验证卡密（已废弃）</h3>
+                          <div className="relative">
+                            <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto opacity-60">
+                              <code>{`<?php
+// 已废弃 - verifyCardKey
+function verifyCardKey($cardKey, $programId) {
+    $url = "${baseUrl}/rest/v1/rpc/verify_card_key";
+    $headers = array(
+        'Authorization: Bearer YOUR_API_KEY',
+        'Content-Type: application/json',
+        'apikey: YOUR_ANON_KEY'
+    );
+    // ... 其余代码已省略`}</code>
+                            </pre>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -799,9 +987,9 @@ verifyCardKey("XXXX-XXXX-XXXX-XXXX", "program-uuid");
                     <CardTitle>C# 示例</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       <div>
-                        <h3 className="font-semibold mb-2">验证卡密</h3>
+                        <h3 className="font-semibold mb-2">🚀 新版独立认证（推荐）</h3>
                         <div className="relative">
                           <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto">
                             <code>{`using System;
@@ -810,32 +998,27 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
-public class CardKeyVerifier
+public class CardKeyAuthenticator
 {
     private readonly HttpClient _httpClient;
-    private readonly string _apiKey;
-    private readonly string _anonKey;
     private readonly string _baseUrl = "${baseUrl}";
 
-    public CardKeyVerifier(string apiKey, string anonKey)
+    public CardKeyAuthenticator()
     {
         _httpClient = new HttpClient();
-        _apiKey = apiKey;
-        _anonKey = anonKey;
     }
 
-    public async Task<bool> VerifyCardKeyAsync(string cardKey, string programId)
+    public async Task<bool> VerifyCardSimpleAsync(string cardKey, string publicKey)
     {
-        var url = $"{_baseUrl}/rest/v1/rpc/verify_card_key";
+        // 独立认证卡密验证 - 仅需卡密+公钥
+        var url = $"{_baseUrl}/rest/v1/rpc/verify_card_simple";
         
         _httpClient.DefaultRequestHeaders.Clear();
-        _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
-        _httpClient.DefaultRequestHeaders.Add("apikey", _anonKey);
         
         var data = new
         {
-            card_key = cardKey,
-            program_id = programId
+            p_card_key = cardKey,
+            p_public_key = publicKey
         };
         
         var json = JsonConvert.SerializeObject(data);
@@ -846,22 +1029,64 @@ public class CardKeyVerifier
         
         dynamic result = JsonConvert.DeserializeObject(responseContent);
         
-        if (result.success == true && result.data.valid == true)
+        if (result.success == true && result.valid == true)
         {
             Console.WriteLine("卡密验证成功");
+            Console.WriteLine($"程序名称: {result.program_name}");
+            Console.WriteLine($"已使用机器数: {result.used_machines}");
+            Console.WriteLine($"最大机器数: {result.max_machines}");
+            Console.WriteLine($"到期时间: {result.expire_at}");
             return true;
         }
         else
         {
-            Console.WriteLine("卡密验证失败");
+            Console.WriteLine($"验证失败: {result.message}");
+            return false;
+        }
+    }
+
+    public async Task<bool> BindMachineSimpleAsync(string cardKey, string machineCode, string publicKey)
+    {
+        // 独立认证机器码绑定 - 仅需卡密+机器码+公钥
+        var url = $"{_baseUrl}/rest/v1/rpc/bind_machine_simple";
+        
+        _httpClient.DefaultRequestHeaders.Clear();
+        
+        var data = new
+        {
+            p_card_key = cardKey,
+            p_machine_code = machineCode,
+            p_public_key = publicKey
+        };
+        
+        var json = JsonConvert.SerializeObject(data);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        
+        var response = await _httpClient.PostAsync(url, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        
+        dynamic result = JsonConvert.DeserializeObject(responseContent);
+        
+        if (result.success == true)
+        {
+            Console.WriteLine("机器码绑定成功");
+            Console.WriteLine($"已使用机器数: {result.used_machines}");
+            Console.WriteLine($"最大机器数: {result.max_machines}");
+            return true;
+        }
+        else
+        {
+            Console.WriteLine($"绑定失败: {result.message}");
             return false;
         }
     }
 }
 
 // 使用示例
-var verifier = new CardKeyVerifier("YOUR_API_KEY", "YOUR_ANON_KEY");
-await verifier.VerifyCardKeyAsync("XXXX-XXXX-XXXX-XXXX", "program-uuid");`}</code>
+var authenticator = new CardKeyAuthenticator();
+string publicKey = "PUBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"; // 从程序管理页面获取
+await authenticator.VerifyCardSimpleAsync("XXXX-XXXX-XXXX-XXXX", publicKey);
+await authenticator.BindMachineSimpleAsync("XXXX-XXXX-XXXX-XXXX", "MACHINE-CODE-123", publicKey);`}</code>
                           </pre>
                           <Button
                             variant="ghost"
@@ -873,32 +1098,27 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
-public class CardKeyVerifier
+public class CardKeyAuthenticator
 {
     private readonly HttpClient _httpClient;
-    private readonly string _apiKey;
-    private readonly string _anonKey;
     private readonly string _baseUrl = "${baseUrl}";
 
-    public CardKeyVerifier(string apiKey, string anonKey)
+    public CardKeyAuthenticator()
     {
         _httpClient = new HttpClient();
-        _apiKey = apiKey;
-        _anonKey = anonKey;
     }
 
-    public async Task<bool> VerifyCardKeyAsync(string cardKey, string programId)
+    public async Task<bool> VerifyCardSimpleAsync(string cardKey, string publicKey)
     {
-        var url = $"{_baseUrl}/rest/v1/rpc/verify_card_key";
+        // 独立认证卡密验证 - 仅需卡密+公钥
+        var url = $"{_baseUrl}/rest/v1/rpc/verify_card_simple";
         
         _httpClient.DefaultRequestHeaders.Clear();
-        _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
-        _httpClient.DefaultRequestHeaders.Add("apikey", _anonKey);
         
         var data = new
         {
-            card_key = cardKey,
-            program_id = programId
+            p_card_key = cardKey,
+            p_public_key = publicKey
         };
         
         var json = JsonConvert.SerializeObject(data);
@@ -909,25 +1129,100 @@ public class CardKeyVerifier
         
         dynamic result = JsonConvert.DeserializeObject(responseContent);
         
-        if (result.success == true && result.data.valid == true)
+        if (result.success == true && result.valid == true)
         {
             Console.WriteLine("卡密验证成功");
+            Console.WriteLine($"程序名称: {result.program_name}");
+            Console.WriteLine($"已使用机器数: {result.used_machines}");
+            Console.WriteLine($"最大机器数: {result.max_machines}");
+            Console.WriteLine($"到期时间: {result.expire_at}");
             return true;
         }
         else
         {
-            Console.WriteLine("卡密验证失败");
+            Console.WriteLine($"验证失败: {result.message}");
+            return false;
+        }
+    }
+
+    public async Task<bool> BindMachineSimpleAsync(string cardKey, string machineCode, string publicKey)
+    {
+        // 独立认证机器码绑定 - 仅需卡密+机器码+公钥
+        var url = $"{_baseUrl}/rest/v1/rpc/bind_machine_simple";
+        
+        _httpClient.DefaultRequestHeaders.Clear();
+        
+        var data = new
+        {
+            p_card_key = cardKey,
+            p_machine_code = machineCode,
+            p_public_key = publicKey
+        };
+        
+        var json = JsonConvert.SerializeObject(data);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        
+        var response = await _httpClient.PostAsync(url, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+        
+        dynamic result = JsonConvert.DeserializeObject(responseContent);
+        
+        if (result.success == true)
+        {
+            Console.WriteLine("机器码绑定成功");
+            Console.WriteLine($"已使用机器数: {result.used_machines}");
+            Console.WriteLine($"最大机器数: {result.max_machines}");
+            return true;
+        }
+        else
+        {
+            Console.WriteLine($"绑定失败: {result.message}");
             return false;
         }
     }
 }
 
 // 使用示例
-var verifier = new CardKeyVerifier("YOUR_API_KEY", "YOUR_ANON_KEY");
-await verifier.VerifyCardKeyAsync("XXXX-XXXX-XXXX-XXXX", "program-uuid");`)}
+var authenticator = new CardKeyAuthenticator();
+string publicKey = "PUBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"; // 从程序管理页面获取
+await authenticator.VerifyCardSimpleAsync("XXXX-XXXX-XXXX-XXXX", publicKey);
+await authenticator.BindMachineSimpleAsync("XXXX-XXXX-XXXX-XXXX", "MACHINE-CODE-123", publicKey);`)}
                           >
                             <Copy className="h-4 w-4" />
                           </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 opacity-60">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="destructive" className="text-xs">已废弃</Badge>
+                          <h3 className="font-semibold text-base">旧版API示例（不推荐）</h3>
+                        </div>
+                        <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                          <p className="text-sm text-orange-700 dark:text-orange-300">
+                            ⚠️ 以下代码使用已废弃的API，建议迁移至新版独立认证API。
+                          </p>
+                        </div>
+                        <div>
+                          <h3 className="font-semibold mb-2 line-through">验证卡密（已废弃）</h3>
+                          <div className="relative">
+                            <pre className="bg-muted p-4 rounded-lg text-sm overflow-x-auto opacity-60">
+                              <code>{`// 已废弃 - CardKeyVerifier
+public class CardKeyVerifier
+{
+    private readonly HttpClient _httpClient;
+    private readonly string _apiKey;
+    private readonly string _anonKey;
+    
+    public CardKeyVerifier(string apiKey, string anonKey)
+    {
+        _httpClient = new HttpClient();
+        _apiKey = apiKey;
+        _anonKey = anonKey;
+    }
+    // ... 其余代码已省略`}</code>
+                            </pre>
+                          </div>
                         </div>
                       </div>
                     </div>
